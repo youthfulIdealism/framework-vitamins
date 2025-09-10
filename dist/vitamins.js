@@ -43,12 +43,14 @@ class Query {
         this.reference = reference;
         this.child_generators = child_generators;
         if (reference.query) {
+            console.log(`${this.reference.collection_id} as query`);
             this.query_parameters = argument;
             this.collection_path = this.reference.path.join('/');
             this.operation = 'query';
         }
         else if (reference.get) {
-            this.id = argument;
+            console.log(`${this.reference.collection_id} as docuemnt`);
+            this.id = reference.document_id;
             this.collection_path = [...this.reference.path, this.id].join('/');
             this.operation = 'get';
         }
@@ -58,22 +60,30 @@ class Query {
         this.has_run = false;
     }
     async run() {
+        console.log(`running ${this.reference.collection_id}`);
+        if (!this.parents.includes('root')) {
+            this.parents.push('root');
+        }
+        this.vitamins._add_query(this);
+        await this._fetch();
+    }
+    async _fetch() {
         if (this.has_run) {
             return;
         }
         this.has_run = true;
-        console.log(`running ${this.reference.collection_id}`);
+        console.log(`_fetching ${this.reference.collection_id}`);
         try {
             if (this.operation === 'get') {
                 let reference = this.reference;
                 let result = await reference.get();
-                this.vitamins.update_data(this, reference, result._id, result);
+                this.vitamins._update_data(this, reference, result._id, result);
             }
             else if (this.operation === 'query') {
                 let reference = this.reference;
                 let results = await reference.query(this.query_parameters);
                 for (let result of results) {
-                    this.vitamins.update_data(this, reference, result._id, result);
+                    this.vitamins._update_data(this, reference, result._id, result);
                 }
             }
         }
@@ -224,25 +234,22 @@ export class Vitamins {
         this.documents = new Map();
         this.queries = new Map();
     }
-    async get(collection, id, ...generators) {
+    query(collection, query_parameters, ...generators) {
         if (!this.queries.has(collection.collection_id)) {
             this.queries.set(collection.collection_id, []);
         }
         let collection_queries = this.queries.get(collection.collection_id);
-        let query = new Query(this, collection, id, generators);
+        let query = new Query(this, collection, query_parameters, generators);
+        console.log(collection.collection_id);
+        console.log(collection_queries);
+        console.log(Query.find_query(collection_queries, query));
         let existing_query = Query.find_query(collection_queries, query);
         if (existing_query) {
             query = existing_query;
         }
-        query.parents.push('root');
-        await query.run();
+        return query;
     }
-    async query(collection, query_parameters, ...generators) {
-        let query = new Query(this, collection, query_parameters, generators);
-        query.parents.push('root');
-        await query.run();
-    }
-    add_query(query, force = false) {
+    _add_query(query, force = false) {
         if (!this.queries.has(query.reference.collection_id)) {
             this.queries.set(query.reference.collection_id, []);
         }
@@ -251,21 +258,21 @@ export class Vitamins {
             queries.push(query);
         }
     }
-    add_document(document) {
+    _add_document(document) {
         if (!this.documents.get(document.document._id)) {
             this.documents.set(document.document._id, document);
         }
     }
-    update_data(parent_query, reference, document_id, data) {
+    _update_data(parent_query, reference, document_id, data) {
         let document = this.documents.get(document_id);
         if (!document) {
             document = new Document(this, reference, data);
-            this.add_document(document);
+            this._add_document(document);
         }
         document.document = data;
         parent_query.link_child(document);
         let all_parent_queries = document.parents;
-        let generated_child_queries = all_parent_queries.flatMap(ele => ele.child_generators).map(ele => ele(data)).map(ele => new Query(this, ele[0], ele[1], ele.slice(2)));
+        let generated_child_queries = all_parent_queries.flatMap(ele => ele.child_generators).map(ele => ele(data));
         let test_queries_for_deletion = document.children;
         for (let q = 0; q < generated_child_queries.length; q++) {
             let generated_child_query = generated_child_queries[q];
@@ -275,7 +282,7 @@ export class Vitamins {
                 generated_child_queries[q] = existing_query;
             }
             else {
-                this.add_query(generated_child_query, true);
+                this._add_query(generated_child_query, true);
             }
         }
         for (let parent_query of document.parents) {
@@ -285,7 +292,7 @@ export class Vitamins {
         for (let child_query of generated_child_queries) {
             child_query.link_parent(document);
         }
-        this.cleanup(test_queries_for_deletion, []);
+        this._cleanup(test_queries_for_deletion, []);
         generated_child_queries.forEach(ele => ele.run());
         let cloned_data = structuredClone(data);
         if (!this.vue[reference.collection_id]) {
@@ -296,7 +303,7 @@ export class Vitamins {
         }
         this.vue[reference.collection_id].set(document_id, cloned_data);
     }
-    cleanup(queries, documents) {
+    _cleanup(queries, documents) {
         let check_queries_queue = queries.slice();
         let check_documents_queue = documents.slice();
         while (check_queries_queue.length > 0 || check_documents_queue.length > 0) {

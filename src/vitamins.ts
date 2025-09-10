@@ -2,8 +2,8 @@ import { App } from 'vue'
 import { generated_collection_interface, generated_document_interface, result } from './type_generated_collection.js'
 
 type query_operation = "get" | "query";
-type generator_arguments = [generated_collection_interface | generated_document_interface, string | any, ...child_generator[]]
-type child_generator = (result: result) => generator_arguments;
+//type generator_arguments = [generated_collection_interface | generated_document_interface, string | any, ...child_generator[]]
+type child_generator = (result: result) => Query;
 
 
 
@@ -51,7 +51,7 @@ class Query {
     child_generators: child_generator[];
     has_run: boolean;
 
-    constructor(vitamins: Vitamins, reference: generated_collection_interface | generated_document_interface, argument: string | any, child_generators: child_generator[] = []){
+    constructor(vitamins: Vitamins, reference: generated_collection_interface | generated_document_interface, argument?: object, child_generators: child_generator[] = []){
         this.children = [];
         this.parents = [];
         this.vitamins = vitamins;
@@ -59,11 +59,13 @@ class Query {
         this.child_generators = child_generators;
         // if the reference has a query method, then it's a collection reference and we should do query operations on it
         if((reference as generated_collection_interface).query) {
+            console.log(`${this.reference.collection_id} as query`)
             this.query_parameters = argument as any;
             this.collection_path = this.reference.path.join('/')
             this.operation = 'query';
         } else if((reference as generated_document_interface).get) {// if the reference has a get method, then it's a document reference and we should do get operations on it
-            this.id = argument as string;
+            console.log(`${this.reference.collection_id} as docuemnt`)
+            this.id = (reference as generated_document_interface).document_id;
             this.collection_path = [...this.reference.path, this.id].join('/')
             this.operation = 'get';
         } else {
@@ -73,22 +75,33 @@ class Query {
     }
 
     async run(){
+        console.log(`running ${this.reference.collection_id}`)
+        if(!this.parents.includes('root')){
+            this.parents.push('root');
+        }
+
+        this.vitamins._add_query(this);
+
+        await this._fetch();
+    }
+
+    async _fetch(){
         if(this.has_run){ return; }
         this.has_run = true;
-        console.log(`running ${this.reference.collection_id}`)
+        console.log(`_fetching ${this.reference.collection_id}`)
         try {
             if(this.operation === 'get'){
                 let reference = this.reference as generated_document_interface;
                 // TODO: how do I want to handle errors? This clearly needs to be in a try-catch.
                 let result = await reference.get();
 
-                this.vitamins.update_data(this, reference, result._id, result);
+                this.vitamins._update_data(this, reference, result._id, result);
             } else if(this.operation === 'query'){
                 let reference = this.reference as generated_collection_interface;
                 // TODO: how do I want to handle errors? This clearly needs to be in a try-catch.
                 let results = await reference.query(this.query_parameters);
                 for(let result of results){
-                    this.vitamins.update_data(this, reference, result._id, result);
+                    this.vitamins._update_data(this, reference, result._id, result);
                 }
             }
         } catch(err){
@@ -230,14 +243,15 @@ export class Vitamins {
         this.queries = new Map();
     }
 
-    async get(collection: generated_collection_interface, id: string, ...generators: child_generator[]) {
+    // TODO: remove entirely?
+    /*async get(collection: generated_document_interface, ...generators: child_generator[]) {
         if(!this.queries.has(collection.collection_id)){
             this.queries.set(collection.collection_id, []);
         }
         let collection_queries = this.queries.get(collection.collection_id)
 
 
-        let query = new Query(this, collection, id, generators);
+        let query = new Query(this, collection, undefined, generators);
         
         // if this query is already in the system, use the existing one.
         let existing_query = Query.find_query(collection_queries, query)
@@ -249,16 +263,26 @@ export class Vitamins {
         
 
         await query.run();
-    }
+    }*/
 
-    async query(collection: generated_collection_interface, query_parameters: any, ...generators: child_generator[]) {
+    query(collection: generated_collection_interface, query_parameters: any, ...generators: child_generator[]): Query {
+        if(!this.queries.has(collection.collection_id)){ this.queries.set(collection.collection_id, []); }
+        let collection_queries = this.queries.get(collection.collection_id)
         let query = new Query(this, collection, query_parameters, generators);
-        // TODO: make this a UUID and add a method to remove root queries via uuid?
-        query.parents.push('root');
-        await query.run();
+
+        let existing_query = Query.find_query(collection_queries, query)
+        if(existing_query){
+            query = existing_query;
+            if(generators.length > 0){
+                query.child_generators.push(...generators);
+            }
+            
+        }
+
+        return query;
     }
 
-    add_query(query: Query, force: boolean = false) {
+    _add_query(query: Query, force: boolean = false) {
         if(!this.queries.has(query.reference.collection_id)){
             this.queries.set(query.reference.collection_id, []);
         }
@@ -268,19 +292,19 @@ export class Vitamins {
         }
     }
 
-    add_document(document: Document) {
+    _add_document(document: Document) {
         if(!this.documents.get(document.document._id)){
             this.documents.set(document.document._id, document);
         }
     }
 
     // TODO: do I need to be accepting an array of documents so that I can link/unlink all of them?
-    update_data(parent_query: Query, reference: generated_collection_interface | generated_document_interface, document_id: string, data: result) {
+    _update_data(parent_query: Query, reference: generated_collection_interface | generated_document_interface, document_id: string, data: result) {
         // if this document doesn't already exist, create it.
         let document = this.documents.get(document_id);
         if(!document) {
             document = new Document(this, reference, data);
-            this.add_document(document);
+            this._add_document(document);
         }
 
         // update the data for the document 
@@ -294,7 +318,7 @@ export class Vitamins {
         // get the full set of parent queries so that we can re-generate any child queries.
         let all_parent_queries = document.parents;
 
-        let generated_child_queries = all_parent_queries.flatMap(ele => ele.child_generators).map(ele => ele(data)).map(ele => new Query(this, ele[0], ele[1], ele.slice(2)));
+        let generated_child_queries = all_parent_queries.flatMap(ele => ele.child_generators).map(ele => ele(data));
 
         let test_queries_for_deletion: Query[] = document.children;
 
@@ -304,7 +328,7 @@ export class Vitamins {
             let collection_query_list = this.queries.get(generated_child_query.reference.collection_id) ?? [];
             let existing_query = Query.find_query(collection_query_list, generated_child_query);
             if(existing_query){ generated_child_queries[q] = existing_query; }
-            else { this.add_query(generated_child_query, true); }
+            else { this._add_query(generated_child_query, true); }
         }
 
         // disconnect and reconnect children, so that any used children are
@@ -318,7 +342,7 @@ export class Vitamins {
             child_query.link_parent(document);
         }
 
-        this.cleanup(test_queries_for_deletion, []);
+        this._cleanup(test_queries_for_deletion, []);
         
         generated_child_queries.forEach(ele => ele.run());
 
@@ -342,7 +366,11 @@ export class Vitamins {
         (this.vue[reference.collection_id] as Map).set(document_id, cloned_data);
     }
 
-    cleanup(queries: Query[], documents: Document[]){
+    _run_child_queries(query: Query, ){
+
+    }
+
+    _cleanup(queries: Query[], documents: Document[]){
         let check_queries_queue = queries.slice();
         let check_documents_queue = documents.slice();
 
