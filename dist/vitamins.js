@@ -1,3 +1,4 @@
+import { v4 as uuid } from 'uuid';
 class Document {
     id;
     vitamins;
@@ -26,17 +27,19 @@ class Document {
     }
 }
 class Query {
+    id;
     vitamins;
     children;
     parents;
     reference;
     collection_path;
     operation;
-    id;
+    document_id;
     query_parameters;
     child_generators;
     has_run;
     constructor(vitamins, reference, argument, child_generators = []) {
+        this.id = uuid();
         this.children = [];
         this.parents = [];
         this.vitamins = vitamins;
@@ -50,8 +53,8 @@ class Query {
         }
         else if (reference.get) {
             console.log(`${this.reference.collection_id} as docuemnt`);
-            this.id = reference.document_id;
-            this.collection_path = [...this.reference.path, this.id].join('/');
+            this.document_id = reference.document_id;
+            this.collection_path = [...this.reference.path, this.document_id].join('/');
             this.operation = 'get';
         }
         else {
@@ -168,7 +171,7 @@ class Query {
         if (query.collection_path !== this.collection_path) {
             return false;
         }
-        if (query.id !== this.id) {
+        if (query.document_id !== this.document_id) {
             return false;
         }
         if (this.query_parameters || query.query_parameters) {
@@ -240,12 +243,13 @@ export class Vitamins {
         }
         let collection_queries = this.queries.get(collection.collection_id);
         let query = new Query(this, collection, query_parameters, generators);
-        console.log(collection.collection_id);
-        console.log(collection_queries);
-        console.log(Query.find_query(collection_queries, query));
         let existing_query = Query.find_query(collection_queries, query);
         if (existing_query) {
             query = existing_query;
+            if (generators.length > 0) {
+                query.child_generators.push(...generators);
+                this._generate_child_queries(query, generators);
+            }
         }
         return query;
     }
@@ -271,20 +275,8 @@ export class Vitamins {
         }
         document.document = data;
         parent_query.link_child(document);
-        let all_parent_queries = document.parents;
-        let generated_child_queries = all_parent_queries.flatMap(ele => ele.child_generators).map(ele => ele(data));
+        let generated_child_queries = this._generate_child_queries(parent_query);
         let test_queries_for_deletion = document.children;
-        for (let q = 0; q < generated_child_queries.length; q++) {
-            let generated_child_query = generated_child_queries[q];
-            let collection_query_list = this.queries.get(generated_child_query.reference.collection_id) ?? [];
-            let existing_query = Query.find_query(collection_query_list, generated_child_query);
-            if (existing_query) {
-                generated_child_queries[q] = existing_query;
-            }
-            else {
-                this._add_query(generated_child_query, true);
-            }
-        }
         for (let parent_query of document.parents) {
             parent_query.unlink_child(document);
         }
@@ -302,6 +294,26 @@ export class Vitamins {
             throw new Error(`when updating ${reference.collection_id}, found that the vue app key ${reference.collection_id} is not a map. It should be a Map<string, ${reference.collection_id}>`);
         }
         this.vue[reference.collection_id].set(document_id, cloned_data);
+    }
+    _generate_child_queries(query, generators) {
+        let all_generated_child_queries = [];
+        for (let document of query.children) {
+            let generated_child_queries = (generators ?? query.child_generators).map(generator => generator(document.document));
+            for (let q = 0; q < generated_child_queries.length; q++) {
+                let generated_child_query = generated_child_queries[q];
+                let collection_query_list = this.queries.get(generated_child_query.reference.collection_id) ?? [];
+                let existing_query = Query.find_query(collection_query_list, generated_child_query);
+                if (existing_query) {
+                    generated_child_queries[q] = existing_query;
+                }
+                else {
+                    this._add_query(generated_child_query, true);
+                }
+                generated_child_query.link_parent(document);
+            }
+            all_generated_child_queries.push(...generated_child_queries);
+        }
+        return all_generated_child_queries;
     }
     _cleanup(queries, documents) {
         let check_queries_queue = queries.slice();

@@ -1,3 +1,4 @@
+import { v4 as uuid } from 'uuid'
 import { App } from 'vue'
 import { generated_collection_interface, generated_document_interface, result } from './type_generated_collection.js'
 
@@ -38,6 +39,7 @@ class Document {
 }
 
 class Query {
+    id: string;
     vitamins: Vitamins;
     children: Document[];
     parents: (Document | string)[];
@@ -45,13 +47,14 @@ class Query {
     reference: generated_collection_interface | generated_document_interface;
     collection_path: string;
     operation: query_operation;
-    id?: string;
+    document_id?: string;
     query_parameters?: any;
 
     child_generators: child_generator[];
     has_run: boolean;
 
     constructor(vitamins: Vitamins, reference: generated_collection_interface | generated_document_interface, argument?: object, child_generators: child_generator[] = []){
+        this.id = uuid();
         this.children = [];
         this.parents = [];
         this.vitamins = vitamins;
@@ -65,8 +68,8 @@ class Query {
             this.operation = 'query';
         } else if((reference as generated_document_interface).get) {// if the reference has a get method, then it's a document reference and we should do get operations on it
             console.log(`${this.reference.collection_id} as docuemnt`)
-            this.id = (reference as generated_document_interface).document_id;
-            this.collection_path = [...this.reference.path, this.id].join('/')
+            this.document_id = (reference as generated_document_interface).document_id;
+            this.collection_path = [...this.reference.path, this.document_id].join('/')
             this.operation = 'get';
         } else {
             throw new Error(`reference is not a collection reference or a query reference. Reexamine that argument.`)
@@ -186,7 +189,7 @@ class Query {
         if(this === query){ return true;}
         if(query.operation !== this.operation){ return false; }
         if(query.collection_path !== this.collection_path) { return false; }
-        if(query.id !== this.id) { return false; }
+        if(query.document_id !== this.document_id) { return false; }
         if(this.query_parameters || query.query_parameters) {
             if(!this.query_parameters || !query.query_parameters) { return false; }
             if(!compare_query_parameters(query.query_parameters as Object, this.query_parameters as Object)) { return false; }
@@ -275,8 +278,9 @@ export class Vitamins {
             query = existing_query;
             if(generators.length > 0){
                 query.child_generators.push(...generators);
+
+                this._generate_child_queries(query, generators);
             }
-            
         }
 
         return query;
@@ -316,7 +320,7 @@ export class Vitamins {
         parent_query.link_child(document);
 
         // get the full set of parent queries so that we can re-generate any child queries.
-        let all_parent_queries = document.parents;
+        /*let all_parent_queries = document.parents;
 
         let generated_child_queries = all_parent_queries.flatMap(ele => ele.child_generators).map(ele => ele(data));
 
@@ -329,7 +333,9 @@ export class Vitamins {
             let existing_query = Query.find_query(collection_query_list, generated_child_query);
             if(existing_query){ generated_child_queries[q] = existing_query; }
             else { this._add_query(generated_child_query, true); }
-        }
+        }*/
+        let generated_child_queries = this._generate_child_queries(parent_query);
+        let test_queries_for_deletion: Query[] = document.children;
 
         // disconnect and reconnect children, so that any used children are
         // connected and any unused children get disconnected
@@ -366,8 +372,21 @@ export class Vitamins {
         (this.vue[reference.collection_id] as Map).set(document_id, cloned_data);
     }
 
-    _run_child_queries(query: Query, ){
-
+    _generate_child_queries(query: Query, generators?: child_generator[]) {
+        let all_generated_child_queries: Query[] = [];
+        for(let document of query.children){
+            let generated_child_queries = (generators ?? query.child_generators).map(generator => generator(document.document));
+            for(let q = 0; q < generated_child_queries.length; q++){
+                let generated_child_query = generated_child_queries[q];
+                let collection_query_list = this.queries.get(generated_child_query.reference.collection_id) ?? [];
+                let existing_query = Query.find_query(collection_query_list, generated_child_query);
+                if(existing_query){ generated_child_queries[q] = existing_query; }
+                else { this._add_query(generated_child_query, true); }
+                generated_child_query.link_parent(document);
+            }
+            all_generated_child_queries.push(...generated_child_queries)
+        }
+        return all_generated_child_queries;
     }
 
     _cleanup(queries: Query[], documents: Document[]){

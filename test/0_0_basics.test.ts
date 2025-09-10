@@ -225,11 +225,10 @@ describe('Client Library Generation: Library Generation', function () {
         assert.deepEqual(vue, test_against)
     });
 
-    // TODO: do a basic query pointing at a specific document
-    // TODO: do a child query pointing at a specific document
     // TODO: delete a document
     // TODO: refetch a document with the data changed so that it points at a different child
     // TODO: make two identical queries to the same document, but have them produce different children
+    // TODO: speed the whole thing up using maps and sets by query ID
 
     it(`should do a basic query that returns multiple children`, async function () {
         let institution_1 = gen_institution('test institution 1')
@@ -412,7 +411,7 @@ describe('Client Library Generation: Library Generation', function () {
         assert.equal(api.collection('institution')?.document('*').collection('client').meta_counter.get(client_1._id), 1)
     });
 
-    it.only(`when two identical queries with different children are generated, the query should run only once and both children should run correctly`, async function () {
+    it(`when two identical queries with different children are generated, the query should run only once and both children should run correctly`, async function () {
         let institution_1 = gen_institution('test institution 1')
         let client_1 = gen_client(institution_1, 'test client 1')
         let client_2 = gen_client(institution_1, 'test client 2')

@@ -13,13 +13,14 @@ declare class Document {
     unlink_parent(query: Query): void;
 }
 declare class Query {
+    id: string;
     vitamins: Vitamins;
     children: Document[];
     parents: (Document | string)[];
     reference: generated_collection_interface | generated_document_interface;
     collection_path: string;
     operation: query_operation;
-    id?: string;
+    document_id?: string;
     query_parameters?: any;
     child_generators: child_generator[];
     has_run: boolean;
@@ -42,6 +43,7 @@ export declare class Vitamins {
     _add_query(query: Query, force?: boolean): void;
     _add_document(document: Document): void;
     _update_data(parent_query: Query, reference: generated_collection_interface | generated_document_interface, document_id: string, data: result): void;
+    _generate_child_queries(query: Query, generators?: child_generator[]): Query[];
     _cleanup(queries: Query[], documents: Document[]): void;
 }
 export {};
