@@ -1,6 +1,6 @@
 import assert from "assert";
 
-import { generated_collection, result } from '../dist/type_generated_collection'
+import { generated_collection_interface, result } from '../dist/type_generated_collection'
 import { Vitamins } from '../dist/vitamins'
 import { v4 as uuid } from 'uuid'
 
@@ -49,6 +49,8 @@ class Collection {
     document(document_id: string) {
         let self = this;
         return {
+            path: [...self.path, document_id],
+            collection_id: self.collection_id,
             async get(): Promise<result>{
                 let count = self.meta_counter.get(document_id) ?? 0;
                 self.meta_counter.set(document_id, count + 1);
@@ -181,7 +183,7 @@ describe('Client Library Generation: Library Generation', function () {
     function print_vitamins(vitamins: Vitamins) {
         console.log(`documents:`)
         for(let document of vitamins.documents.values()) {
-            console.log(`${document.collection.collection_id} ${document.id}`)
+            console.log(`${document.reference.collection_id} ${document.id}`)
             for(let child of document.children) {
                 if(!child.id){ child.id = uuid(); }
                 console.log(`\t${child.id}`);
@@ -258,8 +260,8 @@ describe('Client Library Generation: Library Generation', function () {
 
         //@ts-expect-error
         let vitamins = new Vitamins(vue);
-        vitamins.query(api.collection('institution') as Collection, {}, (result: result) =>
-            [[api.collection('institution')?.document(result._id).collection('client') as generated_collection, 'query', {}]]
+        vitamins.query(api.collection('institution') as Collection, {},
+            (result: result) => [api.collection('institution')?.document(result._id).collection('client') as generated_collection_interface, {}]
         )
         await sleep(100);
 
@@ -293,10 +295,9 @@ describe('Client Library Generation: Library Generation', function () {
 
         //@ts-expect-error
         let vitamins = new Vitamins(vue);
-        vitamins.query(api.collection('institution') as Collection, {}, (result: result) => [
-                [api.collection('institution')?.document(result._id).collection('project') as generated_collection, 'query', {client_id: client_1._id}],
-                [api.collection('institution')?.document(result._id).collection('project') as generated_collection, 'query', {client_id: client_2._id}],
-            ]
+        vitamins.query(api.collection('institution') as Collection, {},
+            (result: result) => [api.collection('institution')?.document(result._id).collection('project') as generated_collection_interface, {client_id: client_1._id}],
+            (result: result) => [api.collection('institution')?.document(result._id).collection('project') as generated_collection_interface, {client_id: client_2._id}],
         )
         await sleep(100);
 
@@ -324,7 +325,7 @@ describe('Client Library Generation: Library Generation', function () {
         assert.equal(api.collection('institution')?.document(institution_1._id).collection('project').meta_counter.get(project_6._id) ?? 0, 0)
     });
 
-    it.only(`should do a basic query that generates child queries accessing the same documents`, async function () {
+    it(`should do a basic query that generates child queries accessing the same documents`, async function () {
         let institution_1 = gen_institution('test institution 1')
         let institution_2 = gen_institution('test institution 2')
         let institution_3 = gen_institution('test institution 3')
@@ -338,9 +339,7 @@ describe('Client Library Generation: Library Generation', function () {
 
         //@ts-expect-error
         let vitamins = new Vitamins(vue);
-        vitamins.query(api.collection('institution') as Collection, {}, (result: result) => [
-            [api.collection('institution')?.document(result._id).collection('client') as generated_collection, 'query', {_id: client_1._id}],
-        ])
+        vitamins.query(api.collection('institution') as Collection, {}, (result: result) => [api.collection('institution')?.document(result._id).collection('client') as generated_collection_interface, {_id: client_1._id}])
         await sleep(100);
 
         let test_against = gen_vue();

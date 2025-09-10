@@ -3,13 +3,13 @@ class Document {
     vitamins;
     children;
     parents;
-    collection;
+    reference;
     document;
-    constructor(vitamins, collection, document) {
+    constructor(vitamins, reference, document) {
         this.vitamins = vitamins;
         this.children = [];
         this.parents = [];
-        this.collection = collection;
+        this.reference = reference;
         this.document = document;
         this.id = document._id;
     }
@@ -29,27 +29,31 @@ class Query {
     vitamins;
     children;
     parents;
-    collection;
+    reference;
     collection_path;
     operation;
     id;
     query_parameters;
     child_generators;
     has_run;
-    constructor(vitamins, collection, operation, argument, child_generators = []) {
+    constructor(vitamins, reference, argument, child_generators = []) {
         this.children = [];
         this.parents = [];
         this.vitamins = vitamins;
-        this.collection = collection;
-        this.operation = operation;
+        this.reference = reference;
         this.child_generators = child_generators;
-        if (operation === 'get') {
-            this.id = argument;
-            this.collection_path = [...this.collection.path, this.id].join('/');
-        }
-        else if (operation === 'query') {
+        if (reference.query) {
             this.query_parameters = argument;
-            this.collection_path = this.collection.path.join('/');
+            this.collection_path = this.reference.path.join('/');
+            this.operation = 'query';
+        }
+        else if (reference.get) {
+            this.id = argument;
+            this.collection_path = [...this.reference.path, this.id].join('/');
+            this.operation = 'get';
+        }
+        else {
+            throw new Error(`reference is not a collection reference or a query reference. Reexamine that argument.`);
         }
         this.has_run = false;
     }
@@ -58,16 +62,18 @@ class Query {
             return;
         }
         this.has_run = true;
-        console.log(`running ${this.collection.collection_id}`);
+        console.log(`running ${this.reference.collection_id}`);
         try {
             if (this.operation === 'get') {
-                let result = await this.collection.document(this.id).get();
-                this.vitamins.update_data(this, this.collection, result._id, result);
+                let reference = this.reference;
+                let result = await reference.get();
+                this.vitamins.update_data(this, reference, result._id, result);
             }
             else if (this.operation === 'query') {
-                let results = await this.collection.query(this.query_parameters);
+                let reference = this.reference;
+                let results = await reference.query(this.query_parameters);
                 for (let result of results) {
-                    this.vitamins.update_data(this, this.collection, result._id, result);
+                    this.vitamins.update_data(this, reference, result._id, result);
                 }
             }
         }
@@ -223,7 +229,7 @@ export class Vitamins {
             this.queries.set(collection.collection_id, []);
         }
         let collection_queries = this.queries.get(collection.collection_id);
-        let query = new Query(this, collection, 'get', id, generators);
+        let query = new Query(this, collection, id, generators);
         let existing_query = Query.find_query(collection_queries, query);
         if (existing_query) {
             query = existing_query;
@@ -232,15 +238,15 @@ export class Vitamins {
         await query.run();
     }
     async query(collection, query_parameters, ...generators) {
-        let query = new Query(this, collection, 'query', query_parameters, generators);
+        let query = new Query(this, collection, query_parameters, generators);
         query.parents.push('root');
         await query.run();
     }
     add_query(query, force = false) {
-        if (!this.queries.has(query.collection.collection_id)) {
-            this.queries.set(query.collection.collection_id, []);
+        if (!this.queries.has(query.reference.collection_id)) {
+            this.queries.set(query.reference.collection_id, []);
         }
-        let queries = this.queries.get(query.collection.collection_id);
+        let queries = this.queries.get(query.reference.collection_id);
         if (force || !Query.find_query(queries, query)) {
             queries.push(query);
         }
@@ -250,20 +256,20 @@ export class Vitamins {
             this.documents.set(document.document._id, document);
         }
     }
-    update_data(parent_query, collection, document_id, data) {
+    update_data(parent_query, reference, document_id, data) {
         let document = this.documents.get(document_id);
         if (!document) {
-            document = new Document(this, collection, data);
+            document = new Document(this, reference, data);
             this.add_document(document);
         }
         document.document = data;
         parent_query.link_child(document);
         let all_parent_queries = document.parents;
-        let generated_child_queries = all_parent_queries.flatMap(ele => ele.child_generators).flatMap(ele => ele(data)).map(ele => new Query(this, ele[0], ele[1], ele[2], ele.slice(3)));
+        let generated_child_queries = all_parent_queries.flatMap(ele => ele.child_generators).map(ele => ele(data)).map(ele => new Query(this, ele[0], ele[1], ele.slice(2)));
         let test_queries_for_deletion = document.children;
         for (let q = 0; q < generated_child_queries.length; q++) {
             let generated_child_query = generated_child_queries[q];
-            let collection_query_list = this.queries.get(generated_child_query.collection.collection_id) ?? [];
+            let collection_query_list = this.queries.get(generated_child_query.reference.collection_id) ?? [];
             let existing_query = Query.find_query(collection_query_list, generated_child_query);
             if (existing_query) {
                 generated_child_queries[q] = existing_query;
@@ -282,13 +288,13 @@ export class Vitamins {
         this.cleanup(test_queries_for_deletion, []);
         generated_child_queries.forEach(ele => ele.run());
         let cloned_data = structuredClone(data);
-        if (!this.vue[collection.collection_id]) {
-            throw new Error(`when updating ${collection.collection_id}, found that the vue app does not have a ${collection.collection_id} key`);
+        if (!this.vue[reference.collection_id]) {
+            throw new Error(`when updating ${reference.collection_id}, found that the vue app does not have a ${reference.collection_id} key`);
         }
-        if (!(this.vue[collection.collection_id] instanceof Map)) {
-            throw new Error(`when updating ${collection.collection_id}, found that the vue app key ${collection.collection_id} is not a map. It should be a Map<string, ${collection.collection_id}>`);
+        if (!(this.vue[reference.collection_id] instanceof Map)) {
+            throw new Error(`when updating ${reference.collection_id}, found that the vue app key ${reference.collection_id} is not a map. It should be a Map<string, ${reference.collection_id}>`);
         }
-        this.vue[collection.collection_id].set(document_id, cloned_data);
+        this.vue[reference.collection_id].set(document_id, cloned_data);
     }
     cleanup(queries, documents) {
         let check_queries_queue = queries.slice();
@@ -303,7 +309,7 @@ export class Vitamins {
                     check_documents_queue.push(child);
                     child.unlink_parent(query);
                 }
-                let query_list = this.queries.get(query.collection.collection_id);
+                let query_list = this.queries.get(query.reference.collection_id);
                 for (let q = 0; q < query_list.length; q++) {
                     if (query_list[q].equals(query)) {
                         query_list.splice(q, 1);
@@ -321,15 +327,15 @@ export class Vitamins {
                     child.unlink_parent(document);
                 }
                 this.documents.delete(document.id);
-                if (!this.vue[document.collection.collection_id]) {
-                    throw new Error(`when updating ${document.collection.collection_id}, found that the vue app does not have a ${document.collection.collection_id} key`);
+                if (!this.vue[document.reference.collection_id]) {
+                    throw new Error(`when updating ${document.reference.collection_id}, found that the vue app does not have a ${document.reference.collection_id} key`);
                 }
                 ;
-                if (!this.vue[document.collection.collection_id] instanceof Map) {
-                    throw new Error(`when updating ${document.collection.collection_id}, found that the vue app key ${document.collection.collection_id} is not a map. It should be a Map<string, ${document.collection.collection_id}>`);
+                if (!this.vue[document.reference.collection_id] instanceof Map) {
+                    throw new Error(`when updating ${document.reference.collection_id}, found that the vue app key ${document.reference.collection_id} is not a map. It should be a Map<string, ${document.reference.collection_id}>`);
                 }
                 ;
-                document.collection.collection_id.delete(document.id);
+                document.reference.collection_id.delete(document.id);
             }
         }
     }

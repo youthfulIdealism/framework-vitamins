@@ -1,9 +1,9 @@
 import { App } from 'vue'
-import { generated_collection, result } from './type_generated_collection.js'
+import { generated_collection_interface, generated_document_interface, result } from './type_generated_collection.js'
 
 type query_operation = "get" | "query";
-type generator_arguments = [generated_collection, query_operation, string | any, ...child_generator[]]
-type child_generator = (result: result) => generator_arguments[];
+type generator_arguments = [generated_collection_interface | generated_document_interface, string | any, ...child_generator[]]
+type child_generator = (result: result) => generator_arguments;
 
 
 
@@ -13,15 +13,15 @@ class Document {
     vitamins: Vitamins;
     children: Query[];
     parents: Query[];
-    collection: generated_collection;
+    reference: generated_collection_interface | generated_document_interface;
     document: result;
 
-    constructor(vitamins: Vitamins, collection: generated_collection, document: result) {
+    constructor(vitamins: Vitamins, reference: generated_collection_interface | generated_document_interface, document: result) {
         this.vitamins = vitamins;
         this.children = [];
         this.parents = [];
         
-        this.collection = collection;
+        this.reference = reference;
         this.document = document;
         this.id = document._id;
     }
@@ -42,7 +42,7 @@ class Query {
     children: Document[];
     parents: (Document | string)[];
 
-    collection: generated_collection;
+    reference: generated_collection_interface | generated_document_interface;
     collection_path: string;
     operation: query_operation;
     id?: string;
@@ -51,19 +51,23 @@ class Query {
     child_generators: child_generator[];
     has_run: boolean;
 
-    constructor(vitamins: Vitamins, collection: generated_collection, operation: query_operation, argument: string | any, child_generators: child_generator[] = []){
+    constructor(vitamins: Vitamins, reference: generated_collection_interface | generated_document_interface, argument: string | any, child_generators: child_generator[] = []){
         this.children = [];
         this.parents = [];
         this.vitamins = vitamins;
-        this.collection = collection;
-        this.operation = operation;
+        this.reference = reference;
         this.child_generators = child_generators;
-        if(operation === 'get') {
-            this.id = argument as string;
-            this.collection_path = [...this.collection.path, this.id].join('/')
-        } else if(operation === 'query') {
+        // if the reference has a query method, then it's a collection reference and we should do query operations on it
+        if((reference as generated_collection_interface).query) {
             this.query_parameters = argument as any;
-            this.collection_path = this.collection.path.join('/')
+            this.collection_path = this.reference.path.join('/')
+            this.operation = 'query';
+        } else if((reference as generated_document_interface).get) {// if the reference has a get method, then it's a document reference and we should do get operations on it
+            this.id = argument as string;
+            this.collection_path = [...this.reference.path, this.id].join('/')
+            this.operation = 'get';
+        } else {
+            throw new Error(`reference is not a collection reference or a query reference. Reexamine that argument.`)
         }
         this.has_run = false;
     }
@@ -71,18 +75,20 @@ class Query {
     async run(){
         if(this.has_run){ return; }
         this.has_run = true;
-        console.log(`running ${this.collection.collection_id}`)
+        console.log(`running ${this.reference.collection_id}`)
         try {
             if(this.operation === 'get'){
+                let reference = this.reference as generated_document_interface;
                 // TODO: how do I want to handle errors? This clearly needs to be in a try-catch.
-                let result = await this.collection.document(this.id).get();
+                let result = await reference.get();
 
-                this.vitamins.update_data(this, this.collection, result._id, result);
+                this.vitamins.update_data(this, reference, result._id, result);
             } else if(this.operation === 'query'){
+                let reference = this.reference as generated_collection_interface;
                 // TODO: how do I want to handle errors? This clearly needs to be in a try-catch.
-                let results = await this.collection.query(this.query_parameters);
+                let results = await reference.query(this.query_parameters);
                 for(let result of results){
-                    this.vitamins.update_data(this, this.collection, result._id, result);
+                    this.vitamins.update_data(this, reference, result._id, result);
                 }
             }
         } catch(err){
@@ -224,14 +230,14 @@ export class Vitamins {
         this.queries = new Map();
     }
 
-    async get(collection: generated_collection, id: string, ...generators: child_generator[]) {
+    async get(collection: generated_collection_interface, id: string, ...generators: child_generator[]) {
         if(!this.queries.has(collection.collection_id)){
             this.queries.set(collection.collection_id, []);
         }
         let collection_queries = this.queries.get(collection.collection_id)
 
 
-        let query = new Query(this, collection, 'get', id, generators);
+        let query = new Query(this, collection, id, generators);
         
         // if this query is already in the system, use the existing one.
         let existing_query = Query.find_query(collection_queries, query)
@@ -245,18 +251,18 @@ export class Vitamins {
         await query.run();
     }
 
-    async query(collection: generated_collection, query_parameters: any, ...generators: child_generator[]) {
-        let query = new Query(this, collection, 'query', query_parameters, generators);
+    async query(collection: generated_collection_interface, query_parameters: any, ...generators: child_generator[]) {
+        let query = new Query(this, collection, query_parameters, generators);
         // TODO: make this a UUID and add a method to remove root queries via uuid?
         query.parents.push('root');
         await query.run();
     }
 
     add_query(query: Query, force: boolean = false) {
-        if(!this.queries.has(query.collection.collection_id)){
-            this.queries.set(query.collection.collection_id, []);
+        if(!this.queries.has(query.reference.collection_id)){
+            this.queries.set(query.reference.collection_id, []);
         }
-        let queries = this.queries.get(query.collection.collection_id)
+        let queries = this.queries.get(query.reference.collection_id)
         if(force || !Query.find_query(queries, query)){
             queries.push(query);
         }
@@ -269,11 +275,11 @@ export class Vitamins {
     }
 
     // TODO: do I need to be accepting an array of documents so that I can link/unlink all of them?
-    update_data(parent_query: Query, collection: generated_collection, document_id: string, data: result) {
+    update_data(parent_query: Query, reference: generated_collection_interface | generated_document_interface, document_id: string, data: result) {
         // if this document doesn't already exist, create it.
         let document = this.documents.get(document_id);
         if(!document) {
-            document = new Document(this, collection, data);
+            document = new Document(this, reference, data);
             this.add_document(document);
         }
 
@@ -288,14 +294,14 @@ export class Vitamins {
         // get the full set of parent queries so that we can re-generate any child queries.
         let all_parent_queries = document.parents;
 
-        let generated_child_queries = all_parent_queries.flatMap(ele => ele.child_generators).flatMap(ele => ele(data)).map(ele => new Query(this, ele[0], ele[1], ele[2], ele.slice(3)));
+        let generated_child_queries = all_parent_queries.flatMap(ele => ele.child_generators).map(ele => ele(data)).map(ele => new Query(this, ele[0], ele[1], ele.slice(2)));
 
         let test_queries_for_deletion: Query[] = document.children;
 
         // if any of the child queries are already in use, operate on those instead of the freshly-generated ones.
         for(let q = 0; q < generated_child_queries.length; q++){
             let generated_child_query = generated_child_queries[q];
-            let collection_query_list = this.queries.get(generated_child_query.collection.collection_id) ?? [];
+            let collection_query_list = this.queries.get(generated_child_query.reference.collection_id) ?? [];
             let existing_query = Query.find_query(collection_query_list, generated_child_query);
             if(existing_query){ generated_child_queries[q] = existing_query; }
             else { this.add_query(generated_child_query, true); }
@@ -323,17 +329,17 @@ export class Vitamins {
         let cloned_data = structuredClone(data);
 
         //@ts-expect-error
-        if(!this.vue[collection.collection_id]){
-            throw new Error(`when updating ${collection.collection_id}, found that the vue app does not have a ${collection.collection_id} key`);
+        if(!this.vue[reference.collection_id]){
+            throw new Error(`when updating ${reference.collection_id}, found that the vue app does not have a ${reference.collection_id} key`);
         }
 
         //@ts-expect-error
-        if(!(this.vue[collection.collection_id] instanceof Map)){
-            throw new Error(`when updating ${collection.collection_id}, found that the vue app key ${collection.collection_id} is not a map. It should be a Map<string, ${collection.collection_id}>`);
+        if(!(this.vue[reference.collection_id] instanceof Map)){
+            throw new Error(`when updating ${reference.collection_id}, found that the vue app key ${reference.collection_id} is not a map. It should be a Map<string, ${reference.collection_id}>`);
         }
 
         //@ts-expect-error
-        (this.vue[collection.collection_id] as Map).set(document_id, cloned_data);
+        (this.vue[reference.collection_id] as Map).set(document_id, cloned_data);
     }
 
     cleanup(queries: Query[], documents: Document[]){
@@ -350,7 +356,7 @@ export class Vitamins {
                     child.unlink_parent(query);
                 }
 
-                let query_list = this.queries.get(query.collection.collection_id);
+                let query_list = this.queries.get(query.reference.collection_id);
                 for(let q = 0; q < query_list.length; q++) {
                     if(query_list[q].equals(query)){
                         query_list.splice(q, 1);
@@ -370,16 +376,16 @@ export class Vitamins {
 
                 this.documents.delete(document.id);
                 //@ts-expect-error
-                if(!this.vue[document.collection.collection_id]){
-                    throw new Error(`when updating ${document.collection.collection_id}, found that the vue app does not have a ${document.collection.collection_id} key`)
+                if(!this.vue[document.reference.collection_id]){
+                    throw new Error(`when updating ${document.reference.collection_id}, found that the vue app does not have a ${document.reference.collection_id} key`)
                 };
 
                 //@ts-expect-error
-                if(!this.vue[document.collection.collection_id] instanceof Map){
-                    throw new Error(`when updating ${document.collection.collection_id}, found that the vue app key ${document.collection.collection_id} is not a map. It should be a Map<string, ${document.collection.collection_id}>`)
+                if(!this.vue[document.reference.collection_id] instanceof Map){
+                    throw new Error(`when updating ${document.reference.collection_id}, found that the vue app key ${document.reference.collection_id} is not a map. It should be a Map<string, ${document.reference.collection_id}>`)
                 };
                 //@ts-expect-error
-                (document.collection.collection_id as Map).delete(document.id);
+                (document.reference.collection_id as Map).delete(document.id);
             }
         }
     }
