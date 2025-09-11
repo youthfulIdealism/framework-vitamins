@@ -5,18 +5,18 @@ type child_generator = (result: result) => Query;
 declare class Document {
     id: string;
     vitamins: Vitamins;
-    children: Query[];
-    parents: Query[];
+    children: Set<string>;
+    parents: Set<string>;
     reference: generated_collection_interface | generated_document_interface;
     document: result;
     constructor(vitamins: Vitamins, reference: generated_collection_interface | generated_document_interface, document: result);
-    unlink_parent(query: Query): void;
+    unlink_parent(id: string): void;
 }
 declare class Query {
     id: string;
     vitamins: Vitamins;
-    children: Document[];
-    parents: (Document | string)[];
+    children: Set<string>;
+    parents: Set<string>;
     reference: generated_collection_interface | generated_document_interface;
     collection_path: string;
     operation: query_operation;
@@ -30,18 +30,21 @@ declare class Query {
     _fetch(): Promise<void>;
     link_child(document: Document): void;
     link_parent(document: Document): void;
-    unlink_child(document: Document): void;
-    unlink_parent(document: Document): void;
+    unlink_child(id: string): void;
+    unlink_parent(id: string): void;
     equals(query: Query): boolean;
     static find_query(queries: Query[], target: Query): Query;
 }
 export declare class Vitamins {
     vue: App;
     documents: Map<string, Document>;
-    queries: Map<string, Query[]>;
+    all_queries: Map<string, Query>;
+    queries_by_collection: Map<string, Set<Query>>;
     constructor(vue: App);
     query(collection: generated_collection_interface, query_parameters: any, ...generators: child_generator[]): Query;
-    _add_query(query: Query, force?: boolean): void;
+    _find_existing_query(query: Query): Query;
+    _add_query(query: Query): void;
+    _delete_query(query: Query): void;
     _add_document(document: Document): void;
     _update_data(parent_query: Query, reference: generated_collection_interface | generated_document_interface, document_id: string, data: result): void;
     _generate_child_queries(query: Query, generators?: child_generator[]): Query[];

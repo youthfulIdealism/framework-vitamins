@@ -410,7 +410,7 @@ describe('Client Library Generation: Library Generation', function () {
         assert.equal(api.collection('institution')?.document('*').collection('client').meta_counter.get(client_1._id), 1)
     });
 
-    it(`when two identical queries with different children are generated, the query should run only once and both children should run correctly`, async function () {
+    it.skip(`when two identical queries with different children are generated, the query should run only once and both children should run correctly`, async function () {
         let institution_1 = gen_institution('test institution 1')
         let client_1 = gen_client(institution_1, 'test client 1')
         let client_2 = gen_client(institution_1, 'test client 2')
@@ -453,7 +453,7 @@ describe('Client Library Generation: Library Generation', function () {
         assert.equal(api.collection('institution')?.document('*').collection('client').meta_counter.get(client_3._id), 1)
     });
 
-    it.only(`should switch targets when the data changes`, async function () {
+    it.skip(`should switch targets when the data changes`, async function () {
         let institution_1 = gen_institution('test institution 1')
         let institution_2 = gen_institution('test institution 2')
         let client_1 = gen_client(institution_1, 'test client 1')

@@ -8,22 +8,14 @@ class Document {
     document;
     constructor(vitamins, reference, document) {
         this.vitamins = vitamins;
-        this.children = [];
-        this.parents = [];
+        this.children = new Set();
+        this.parents = new Set();
         this.reference = reference;
         this.document = document;
         this.id = document._id;
     }
-    unlink_parent(query) {
-        for (let q = 0; q < this.parents.length; q++) {
-            if (typeof this.parents[q] === 'string') {
-                continue;
-            }
-            if (this.parents[q].equals(query)) {
-                this.parents.splice(q, 1);
-                break;
-            }
-        }
+    unlink_parent(id) {
+        this.parents.delete(id);
     }
 }
 class Query {
@@ -40,8 +32,8 @@ class Query {
     has_run;
     constructor(vitamins, reference, argument, child_generators = []) {
         this.id = uuid();
-        this.children = [];
-        this.parents = [];
+        this.children = new Set();
+        this.parents = new Set();
         this.vitamins = vitamins;
         this.reference = reference;
         this.child_generators = child_generators;
@@ -69,8 +61,8 @@ class Query {
     }
     async run(run_from_root = true) {
         console.log(`running ${this.reference.collection_id}`);
-        if (run_from_root && !this.parents.includes('root')) {
-            this.parents.push('root');
+        if (run_from_root && !this.parents.has('root')) {
+            this.parents.add('root');
         }
         this.vitamins._add_query(this);
         await this._fetch();
@@ -102,70 +94,18 @@ class Query {
         }
     }
     link_child(document) {
-        let has_child_already = false;
-        for (let child of this.children) {
-            if (child.id === document.id) {
-                has_child_already = true;
-                break;
-            }
-        }
-        if (!has_child_already) {
-            this.children.push(document);
-        }
-        let document_has_parent = false;
-        for (let query of document.parents) {
-            if (query.equals(this)) {
-                document_has_parent = true;
-                break;
-            }
-        }
-        if (!document_has_parent) {
-            document.parents.push(this);
-        }
+        this.children.add(document.id);
+        document.parents.add(this.id);
     }
     link_parent(document) {
-        let has_parent_already = false;
-        for (let parent of this.parents) {
-            if (typeof parent === 'string') {
-                continue;
-            }
-            if (parent.id === document.id) {
-                has_parent_already = true;
-                break;
-            }
-        }
-        if (!has_parent_already) {
-            this.parents.push(document);
-        }
-        let document_has_child = false;
-        for (let query of document.children) {
-            if (query.equals(this)) {
-                document_has_child = true;
-                break;
-            }
-        }
-        if (!document_has_child) {
-            document.children.push(this);
-        }
+        this.parents.add(document.id);
+        document.children.add(this.id);
     }
-    unlink_child(document) {
-        for (let q = 0; q < this.children.length; q++) {
-            if (this.children[q].id === document.id) {
-                this.children.splice(q, 1);
-                break;
-            }
-        }
+    unlink_child(id) {
+        this.children.delete(id);
     }
-    unlink_parent(document) {
-        for (let q = 0; q < this.parents.length; q++) {
-            if (typeof this.parents[q] === 'string') {
-                continue;
-            }
-            if (this.parents[q].id === document.id) {
-                this.parents.splice(q, 1);
-                break;
-            }
-        }
+    unlink_parent(id) {
+        this.parents.delete(id);
     }
     equals(query) {
         if (this === query) {
@@ -237,41 +177,49 @@ function compare_array(a, b) {
 export class Vitamins {
     vue;
     documents;
-    queries;
+    all_queries;
+    queries_by_collection;
     constructor(vue) {
         this.vue = vue;
         this.documents = new Map();
-        this.queries = new Map();
+        this.queries_by_collection = new Map();
+        this.all_queries = new Map();
     }
     query(collection, query_parameters, ...generators) {
-        if (!this.queries.has(collection.collection_id)) {
-            this.queries.set(collection.collection_id, []);
+        if (!this.queries_by_collection.has(collection.collection_id)) {
+            this.queries_by_collection.set(collection.collection_id, new Set());
         }
-        let collection_queries = this.queries.get(collection.collection_id);
-        let query = new Query(this, collection, query_parameters, generators);
-        let existing_query = Query.find_query(collection_queries, query);
-        if (existing_query) {
-            query = existing_query;
-            if (generators.length > 0) {
-                query.child_generators.push(...generators);
-                this._generate_child_queries(query, generators);
+        let generated_query = new Query(this, collection, query_parameters, generators);
+        let query = this._find_existing_query(generated_query) ?? generated_query;
+        if (query !== generated_query) {
+            for (let generator of generators) {
+                if (!query.child_generators.includes(generator)) {
+                    query.child_generators.push(generator);
+                }
             }
+            this._generate_child_queries(query, generators);
         }
         return query;
     }
-    _add_query(query, force = false) {
-        if (!this.queries.has(query.reference.collection_id)) {
-            this.queries.set(query.reference.collection_id, []);
+    _find_existing_query(query) {
+        let collection_queries = this.queries_by_collection.get(query.reference.collection_id);
+        let existing_query = Query.find_query(Array.from(collection_queries), query);
+        return existing_query;
+    }
+    _add_query(query) {
+        if (!this.queries_by_collection.has(query.reference.collection_id)) {
+            this.queries_by_collection.set(query.reference.collection_id, new Set());
         }
-        let queries = this.queries.get(query.reference.collection_id);
-        if (force || !Query.find_query(queries, query)) {
-            queries.push(query);
-        }
+        let queries = this.queries_by_collection.get(query.reference.collection_id);
+        queries.add(query);
+        this.all_queries.set(query.id, query);
+    }
+    _delete_query(query) {
+        this.queries_by_collection.get(query.reference.collection_id).delete(query);
+        this.all_queries.delete(query.id);
     }
     _add_document(document) {
-        if (!this.documents.get(document.document._id)) {
-            this.documents.set(document.document._id, document);
-        }
+        this.documents.set(document.document._id, document);
     }
     _update_data(parent_query, reference, document_id, data) {
         let document = this.documents.get(document_id);
@@ -282,15 +230,8 @@ export class Vitamins {
         document.document = data;
         parent_query.link_child(document);
         let generated_child_queries = this._generate_child_queries(parent_query);
-        let test_queries_for_deletion = document.children;
+        let test_queries_for_deletion = Array.from(document.children).map(query_id => this.all_queries.get(query_id));
         console.log(test_queries_for_deletion);
-        for (let parent_query of document.parents) {
-            parent_query.unlink_child(document);
-        }
-        document.parents = generated_child_queries;
-        for (let child_query of generated_child_queries) {
-            child_query.link_parent(document);
-        }
         this._cleanup(test_queries_for_deletion, []);
         generated_child_queries.forEach(ele => ele.run(false));
         let cloned_data = structuredClone(data);
@@ -304,17 +245,17 @@ export class Vitamins {
     }
     _generate_child_queries(query, generators) {
         let all_generated_child_queries = [];
-        for (let document of query.children) {
+        for (let document_id of query.children) {
+            let document = this.documents.get(document_id);
             let generated_child_queries = (generators ?? query.child_generators).map(generator => generator(document.document));
             for (let q = 0; q < generated_child_queries.length; q++) {
                 let generated_child_query = generated_child_queries[q];
-                let collection_query_list = this.queries.get(generated_child_query.reference.collection_id) ?? [];
-                let existing_query = Query.find_query(collection_query_list, generated_child_query);
-                if (existing_query) {
-                    generated_child_queries[q] = existing_query;
+                let query = this._find_existing_query(generated_child_query) ?? generated_child_query;
+                if (generated_child_query !== query) {
+                    generated_child_queries[q] = query;
                 }
                 else {
-                    this._add_query(generated_child_query, true);
+                    this._add_query(generated_child_query);
                 }
                 generated_child_query.link_parent(document);
             }
@@ -328,29 +269,25 @@ export class Vitamins {
         while (check_queries_queue.length > 0 || check_documents_queue.length > 0) {
             while (check_queries_queue.length > 0) {
                 let query = check_queries_queue.pop();
-                if (query.parents.length > 0) {
+                if (query.parents.size > 0) {
                     continue;
                 }
-                for (let child of query.children) {
+                for (let child_id of query.children) {
+                    let child = this.documents.get(child_id);
                     check_documents_queue.push(child);
-                    child.unlink_parent(query);
+                    child.unlink_parent(query.id);
                 }
-                let query_list = this.queries.get(query.reference.collection_id);
-                for (let q = 0; q < query_list.length; q++) {
-                    if (query_list[q].equals(query)) {
-                        query_list.splice(q, 1);
-                        break;
-                    }
-                }
+                this._delete_query(query);
             }
             while (check_documents_queue.length > 0) {
                 let document = check_documents_queue.pop();
-                if (document.parents.length > 0) {
+                if (document.parents.size > 0) {
                     continue;
                 }
-                for (let child of document.children) {
-                    check_queries_queue.push(child);
-                    child.unlink_parent(document);
+                for (let child_id of document.children) {
+                    let child = this.all_queries.get(child_id);
+                    check_queries_queue.push(this.all_queries.get(child_id));
+                    child.unlink_parent(document.id);
                 }
                 this.documents.delete(document.id);
                 if (!this.vue[document.reference.collection_id]) {
