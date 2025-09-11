@@ -227,7 +227,6 @@ describe('Client Library Generation: Library Generation', function () {
 
     // TODO: delete a document
     // TODO: refetch a document with the data changed so that it points at a different child
-    // TODO: make two identical queries to the same document, but have them produce different children
     // TODO: speed the whole thing up using maps and sets by query ID
 
     it(`should do a basic query that returns multiple children`, async function () {
@@ -452,6 +451,49 @@ describe('Client Library Generation: Library Generation', function () {
         assert.equal(api.collection('institution')?.document('*').collection('client').meta_counter.get(client_1._id), 1)
         assert.equal(api.collection('institution')?.document('*').collection('client').meta_counter.get(client_2._id), 1)
         assert.equal(api.collection('institution')?.document('*').collection('client').meta_counter.get(client_3._id), 1)
+    });
+
+    it.only(`should switch targets when the data changes`, async function () {
+        let institution_1 = gen_institution('test institution 1')
+        let institution_2 = gen_institution('test institution 2')
+        let client_1 = gen_client(institution_1, 'test client 1')
+        let institution_database = database(institution_1, institution_2);
+        let client_database = database(client_1);
+        let {
+            vue,
+            api
+        } = get_setup(institution_database, client_database);
+
+        //@ts-expect-error
+        let vitamins = new Vitamins(vue);
+        //@ts-expect-error
+        let query = await vitamins.query(api.collection('institution')?.document('*').collection('client').document(client_1._id) as Collection, undefined,
+            //@ts-expect-error
+            (result: result) => vitamins.query(api.collection('institution') as generated_collection_interface, {_id: result.institution_id }),
+        ).run()
+        await sleep(100);
+
+        let test_against_phase_1 = gen_vue();
+        test_against_phase_1.institution.set(institution_1._id, structuredClone(institution_1));
+        test_against_phase_1.client.set(client_1._id, structuredClone(client_1));
+
+        assert.deepEqual(vue.client.get(client_1._id), client_1)
+        assert.deepEqual(vue.institution.get(institution_1._id), institution_1)
+        assert.deepEqual(vue, test_against_phase_1)
+
+        client_1.institution_id = institution_2._id;
+        query.rerun();
+        await sleep(100);
+
+        let test_against_phase_2 = gen_vue();
+        test_against_phase_2.institution.set(institution_2._id, structuredClone(institution_2));
+        test_against_phase_2.client.set(client_1._id, structuredClone(client_1));
+
+        assert.deepEqual(vue.client.get(client_1._id), client_1);
+        assert.deepEqual(vue.institution.get(institution_2._id), institution_2);
+        assert.deepEqual(vue, test_against_phase_2);
+
+
     });
 
     

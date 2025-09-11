@@ -62,13 +62,19 @@ class Query {
         }
         this.has_run = false;
     }
-    async run() {
+    async rerun() {
+        console.log(`RERUNNING QUERY`);
+        this.has_run = false;
+        await this._fetch();
+    }
+    async run(run_from_root = true) {
         console.log(`running ${this.reference.collection_id}`);
-        if (!this.parents.includes('root')) {
+        if (run_from_root && !this.parents.includes('root')) {
             this.parents.push('root');
         }
         this.vitamins._add_query(this);
         await this._fetch();
+        return this;
     }
     async _fetch() {
         if (this.has_run) {
@@ -277,6 +283,7 @@ export class Vitamins {
         parent_query.link_child(document);
         let generated_child_queries = this._generate_child_queries(parent_query);
         let test_queries_for_deletion = document.children;
+        console.log(test_queries_for_deletion);
         for (let parent_query of document.parents) {
             parent_query.unlink_child(document);
         }
@@ -285,7 +292,7 @@ export class Vitamins {
             child_query.link_parent(document);
         }
         this._cleanup(test_queries_for_deletion, []);
-        generated_child_queries.forEach(ele => ele.run());
+        generated_child_queries.forEach(ele => ele.run(false));
         let cloned_data = structuredClone(data);
         if (!this.vue[reference.collection_id]) {
             throw new Error(`when updating ${reference.collection_id}, found that the vue app does not have a ${reference.collection_id} key`);

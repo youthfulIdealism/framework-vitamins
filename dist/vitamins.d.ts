@@ -25,7 +25,8 @@ declare class Query {
     child_generators: child_generator[];
     has_run: boolean;
     constructor(vitamins: Vitamins, reference: generated_collection_interface | generated_document_interface, argument?: object, child_generators?: child_generator[]);
-    run(): Promise<void>;
+    rerun(): Promise<void>;
+    run(run_from_root?: boolean): Promise<this>;
     _fetch(): Promise<void>;
     link_child(document: Document): void;
     link_parent(document: Document): void;

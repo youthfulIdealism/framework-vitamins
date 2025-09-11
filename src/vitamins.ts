@@ -77,15 +77,22 @@ class Query {
         this.has_run = false;
     }
 
-    async run(){
+    async rerun() {
+        console.log(`RERUNNING QUERY`)
+        this.has_run = false;
+        await this._fetch();
+    }
+
+    async run(run_from_root: boolean = true){
         console.log(`running ${this.reference.collection_id}`)
-        if(!this.parents.includes('root')){
+        if(run_from_root && !this.parents.includes('root')){
             this.parents.push('root');
         }
 
         this.vitamins._add_query(this);
 
         await this._fetch();
+        return this;
     }
 
     async _fetch(){
@@ -278,7 +285,6 @@ export class Vitamins {
             query = existing_query;
             if(generators.length > 0){
                 query.child_generators.push(...generators);
-
                 this._generate_child_queries(query, generators);
             }
         }
@@ -320,22 +326,11 @@ export class Vitamins {
         parent_query.link_child(document);
 
         // get the full set of parent queries so that we can re-generate any child queries.
-        /*let all_parent_queries = document.parents;
-
-        let generated_child_queries = all_parent_queries.flatMap(ele => ele.child_generators).map(ele => ele(data));
-
-        let test_queries_for_deletion: Query[] = document.children;
-
-        // if any of the child queries are already in use, operate on those instead of the freshly-generated ones.
-        for(let q = 0; q < generated_child_queries.length; q++){
-            let generated_child_query = generated_child_queries[q];
-            let collection_query_list = this.queries.get(generated_child_query.reference.collection_id) ?? [];
-            let existing_query = Query.find_query(collection_query_list, generated_child_query);
-            if(existing_query){ generated_child_queries[q] = existing_query; }
-            else { this._add_query(generated_child_query, true); }
-        }*/
         let generated_child_queries = this._generate_child_queries(parent_query);
         let test_queries_for_deletion: Query[] = document.children;
+
+        //console.log(generated_child_queries)
+        console.log(test_queries_for_deletion)
 
         // disconnect and reconnect children, so that any used children are
         // connected and any unused children get disconnected
@@ -350,7 +345,7 @@ export class Vitamins {
 
         this._cleanup(test_queries_for_deletion, []);
         
-        generated_child_queries.forEach(ele => ele.run());
+        generated_child_queries.forEach(ele => ele.run(false));
 
         /*
             Clone the response data to prevent any funkyness if it gets changed in the frontend code,
