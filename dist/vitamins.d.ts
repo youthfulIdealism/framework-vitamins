@@ -26,7 +26,7 @@ declare class Query {
     has_run: boolean;
     constructor(vitamins: Vitamins, reference: generated_collection_interface | generated_document_interface, argument?: object, child_generators?: child_generator[]);
     rerun(): Promise<void>;
-    run(run_from_root?: boolean): Promise<this>;
+    run(run_from_root?: boolean): Promise<Query>;
     _fetch(): Promise<void>;
     link_child(document: Document): void;
     link_parent(document: Document): void;
@@ -46,8 +46,8 @@ export declare class Vitamins {
     _add_query(query: Query): void;
     _delete_query(query: Query): void;
     _add_document(document: Document): void;
-    _update_data(parent_query: Query, reference: generated_collection_interface | generated_document_interface, document_id: string, data: result): void;
-    _generate_child_queries(query: Query, generators?: child_generator[]): Query[];
+    _update_data(reference: generated_collection_interface | generated_document_interface, document_id: string, data: result, query: Query): void;
+    _generate_child_queries(document: Document): Query[];
     _cleanup(queries: Query[], documents: Document[]): void;
 }
 export {};
