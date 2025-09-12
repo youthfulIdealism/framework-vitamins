@@ -15,10 +15,8 @@
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
-    "@types/mustache": "^4.2.6",
     "@types/node": "^24.3.1",
     "mocha": "^11.7.2",
-    "mustache": "^4.2.0",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2"
   },
