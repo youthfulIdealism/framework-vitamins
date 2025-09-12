@@ -96,7 +96,7 @@ describe('Client Library Generation: Library Generation', function () {
         //@ts-expect-error
         let vitamins = new Vitamins(vue);
         await vitamins.query(api.collection('institution'), {}).run()
-        await sleep(100);
+        await sleep(20);
 
         let test_against = gen_vue();
         test_against.institution.set(institution._id, structuredClone(institution));
@@ -118,7 +118,7 @@ describe('Client Library Generation: Library Generation', function () {
         //@ts-expect-error
         let vitamins = new Vitamins(vue);
         vitamins.query(api.collection('institution'), {}).run()
-        await sleep(100);
+        await sleep(20);
 
         let test_against = gen_vue();
         test_against.institution.set(institution_1._id, structuredClone(institution_1));
@@ -141,7 +141,7 @@ describe('Client Library Generation: Library Generation', function () {
         let vitamins = new Vitamins(vue);
         //@ts-expect-error
         await vitamins.query(api.collection('institution')?.document(institution._id), {}).run()
-        await sleep(100);
+        await sleep(20);
 
         let test_against = gen_vue();
         test_against.institution.set(institution._id, structuredClone(institution));
@@ -165,7 +165,7 @@ describe('Client Library Generation: Library Generation', function () {
         vitamins.query(api.collection('institution'), {},
             (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {})
         ).run()
-        await sleep(100);
+        await sleep(20);
 
         let test_against = gen_vue();
         test_against.institution.set(institution_1._id, structuredClone(institution_1));
@@ -192,7 +192,7 @@ describe('Client Library Generation: Library Generation', function () {
         vitamins.query(api.collection('institution').document(institution_1._id), undefined,
             (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {})
         ).run()
-        await sleep(100);
+        await sleep(20);
 
         let test_against = gen_vue();
         test_against.institution.set(institution_1._id, structuredClone(institution_1));
@@ -228,7 +228,7 @@ describe('Client Library Generation: Library Generation', function () {
             (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('project'), {client_id: client_1._id}),
             (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('project'), {client_id: client_2._id}),
         ).run()
-        await sleep(100);
+        await sleep(20);
 
         let test_against = gen_vue();
         test_against.institution.set(institution_1._id, structuredClone(institution_1));
@@ -271,7 +271,7 @@ describe('Client Library Generation: Library Generation', function () {
         vitamins.query(api.collection('institution'), {},
             (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {_id: client_1._id}),
         ).run()
-        await sleep(100);
+        await sleep(20);
 
         let test_against = gen_vue();
         test_against.institution.set(institution_1._id, structuredClone(institution_1));
@@ -310,7 +310,7 @@ describe('Client Library Generation: Library Generation', function () {
             (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {_id: client_2._id}),
             (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {_id: client_3._id}),
         ).run()
-        await sleep(100);
+        await sleep(20);
 
         let test_against = gen_vue();
         test_against.institution.set(institution_1._id, structuredClone(institution_1));
@@ -347,7 +347,7 @@ describe('Client Library Generation: Library Generation', function () {
             //@ts-expect-error
             (result) => vitamins.query(api.collection('institution'), {_id: result.institution_id }),
         ).run()
-        await sleep(100);
+        await sleep(20);
 
         let test_against_phase_1 = gen_vue();
         test_against_phase_1.institution.set(institution_1._id, structuredClone(institution_1));
@@ -359,7 +359,7 @@ describe('Client Library Generation: Library Generation', function () {
 
         client_1.institution_id = institution_2._id;
         query.rerun();
-        await sleep(100);
+        await sleep(20);
 
         let test_against_phase_2 = gen_vue();
         test_against_phase_2.institution.set(institution_2._id, structuredClone(institution_2));
@@ -388,7 +388,7 @@ describe('Client Library Generation: Library Generation', function () {
             //@ts-expect-error
             (result) => vitamins.query(api.collection('institution'), {_id: result.institution_id }),
         ).run()
-        await sleep(100);
+        await sleep(20);
 
         let test_against_phase_1 = gen_vue();
         test_against_phase_1.institution.set(institution_1._id, structuredClone(institution_1));
@@ -399,7 +399,7 @@ describe('Client Library Generation: Library Generation', function () {
         assert.deepEqual(vue, test_against_phase_1)
 
         vitamins.update_document_from_external(client_1._id, Object.assign(client_1, {institution_id: institution_2._id}))
-        await sleep(100);
+        await sleep(20);
 
         let test_against_phase_2 = gen_vue();
         test_against_phase_2.institution.set(institution_2._id, structuredClone(institution_2));
@@ -429,7 +429,7 @@ describe('Client Library Generation: Library Generation', function () {
                 (result) => vitamins.query(api.collection('institution')?.document('*').collection('project'), {client_id: result._id })
             ),
         ).run()
-        await sleep(100);
+        await sleep(20);
 
         let test_against_phase_1 = gen_vue();
         test_against_phase_1.institution.set(institution_1._id, structuredClone(institution_1));
@@ -439,7 +439,7 @@ describe('Client Library Generation: Library Generation', function () {
         assert.deepEqual(vue, test_against_phase_1)
 
         vitamins.delete_document_from_external(client_1._id);
-        await sleep(100);
+        await sleep(20);
 
         let test_against_phase_2 = gen_vue();
         test_against_phase_2.institution.set(institution_1._id, structuredClone(institution_1));
@@ -447,5 +447,90 @@ describe('Client Library Generation: Library Generation', function () {
         assert.deepEqual(vue, test_against_phase_2)
     });
 
-    // TODO: error handling
+    it(`in a basic query, errors get bubbled up to the parent context`, async function () {
+        let institution = gen_institution('test institution')
+        let institution_database = database(institution);
+        let {
+            vue,
+            api,
+            collection_institution
+        } = get_setup(institution_database);
+
+        collection_institution.errors = true;
+
+        assert.rejects(async () => {
+            //@ts-expect-error
+            let vitamins = new Vitamins(vue);
+            await vitamins.query(api.collection('institution'), {}).run()
+        }, 'Error: arbitrary error');
+    });
+
+
+    it(`in a basic query that generates a child query, errors get bubbled up to the parent context`, async function () {
+        let institution_1 = gen_institution('test institution 1')
+        let client_1 = gen_client(institution_1, 'test client 1')
+        let institution_database = database(institution_1);
+        let client_database = database(client_1);
+        let {
+            vue,
+            api
+        } = get_setup(institution_database, client_database);
+
+        assert.rejects(async () => {
+            //@ts-expect-error
+            let vitamins = new Vitamins(vue);
+            await vitamins.query(api.collection('institution'), {},
+                (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {})
+            ).run()
+        }, 'Error: arbitrary error');
+    });
+
+    it(`in a basic document query that generates a child query, errors get bubbled up to the parent context`, async function () {
+        let institution_1 = gen_institution('test institution 1')
+        let client_1 = gen_client(institution_1, 'test client 1')
+        let institution_database = database(institution_1);
+        let client_database = database(client_1);
+        let {
+            vue,
+            api
+        } = get_setup(institution_database, client_database);
+
+        assert.rejects(async () => {
+            //@ts-expect-error
+            let vitamins = new Vitamins(vue);
+            //@ts-expect-error
+            await vitamins.query(api.collection('institution').document(institution_1._id), undefined,
+                (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {})
+            ).run()
+        }, 'Error: arbitrary error');
+    });
+
+    it(`in a basic query that generates a child query that generates a child query, errors get bubbled up to the parent context`, async function () {
+        let institution_1 = gen_institution('test institution 1')
+        let client_1 = gen_client(institution_1, 'test client 1')
+        let client_2 = gen_client(institution_1, 'test client 2')
+        let client_3 = gen_client(institution_1, 'test client 3')
+        let project_1 = gen_project(institution_1, client_1, 'test project 1')
+        let project_2 = gen_project(institution_1, client_1, 'test project 2')
+        let project_3 = gen_project(institution_1, client_2, 'test project 3')
+        let project_4 = gen_project(institution_1, client_2, 'test project 4')
+        let project_5 = gen_project(institution_1, client_3, 'test project 5')
+        let project_6 = gen_project(institution_1, client_3, 'test project 6')
+        let institution_database = database(institution_1);
+        let client_database = database(client_1, client_2, client_3);
+        let project_database = database(project_1, project_2, project_3, project_4, project_5, project_6)
+        let {
+            vue,
+            api
+        } = get_setup(institution_database, client_database, project_database);
+
+        assert.rejects(async () => {
+            //@ts-expect-error
+            let vitamins = new Vitamins(vue);
+            await vitamins.query(api.collection('institution'), {},
+                (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('project'), {client_id: client_1._id}),
+                (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('project'), {client_id: client_2._id}),
+            ).run();
+        }, 'Error: arbitrary error');
+    });
 });

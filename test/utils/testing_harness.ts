@@ -98,6 +98,7 @@ export class Institution {
     collection_id: string;
     database: Map<string, any>
     meta_counter: Map<string, any>
+    errors: boolean
 
     project: Project
     client: Client
@@ -110,10 +111,11 @@ export class Institution {
         this.meta_counter = new Map();
         this.project = project;
         this.client = client;
-        
+        this.errors = false;
     }
 
     async query(query: any): Promise<institution_result[]> {
+        if(this.errors){ throw new Error('arbitrary error')};
         return await get_query_results(query, this.database, this.meta_counter);
     }
 
@@ -124,6 +126,7 @@ export class Institution {
             collection_id: self.collection_id,
             document_id: document_id,
             async get(): Promise<institution_result>{
+                if(self.errors){ throw new Error('arbitrary error')};
                 return await get(document_id, self.database, self.meta_counter)
             },
             collection(collection_id: 'client' | 'project') {
@@ -143,6 +146,7 @@ export class Client {
     collection_id: string;
     database: Map<string, any>
     meta_counter: Map<string, any>
+    errors: boolean
 
     mutualism: Mutualism
 
@@ -152,9 +156,11 @@ export class Client {
         this.database = client_database;
         this.meta_counter = new Map();
         this.mutualism = mutualism;
+        this.errors = false;
     }
 
     async query(query: any): Promise<client_result[]> {
+        if(this.errors){ throw new Error('arbitrary error')};
         return await get_query_results(query, this.database, this.meta_counter);
     }
 
@@ -164,7 +170,8 @@ export class Client {
             path: [...self.path, document_id],
             collection_id: self.collection_id,
             document_id: document_id,
-            async get(): Promise<client_result>{
+            async get(): Promise<client_result> {
+                if(self.errors){ throw new Error('arbitrary error')};
                 return await get(document_id, self.database, self.meta_counter)
             },
             collection(collection_id: 'mutualism') {
@@ -182,15 +189,18 @@ export class Project {
     collection_id: string;
     database: Map<string, any>
     meta_counter: Map<string, any>
+    errors: boolean
 
     constructor(path: string[], collection_id: string, project_database: Map<string, any>) {
         this.path = path;
         this.collection_id = collection_id;
         this.database = project_database;
         this.meta_counter = new Map();
+        this.errors = false;
     }
 
     async query(query: any): Promise<project_result[]> {
+        if(this.errors){ throw new Error('arbitrary error')};
         return await get_query_results(query, this.database, this.meta_counter);
     }
 
@@ -200,7 +210,8 @@ export class Project {
             path: [...self.path, document_id],
             collection_id: self.collection_id,
             document_id: document_id,
-            async get(): Promise<project_result>{
+            async get(): Promise<project_result> {
+                if(self.errors){ throw new Error('arbitrary error')};
                 return await get(document_id, self.database, self.meta_counter)
             },
             collection() {}
@@ -213,15 +224,18 @@ export class Mutualism {
     collection_id: string;
     database: Map<string, any>
     meta_counter: Map<string, any>
+    errors: boolean
 
     constructor(path: string[], collection_id: string, mutualism_database: Map<string, any>) {
         this.path = path;
         this.collection_id = collection_id;
         this.database = mutualism_database;
         this.meta_counter = new Map();
+        this.errors = false;
     }
 
     async query(query: any): Promise<mutualism_result[]> {
+        if(this.errors){ throw new Error('arbitrary error')};
         return await get_query_results(query, this.database, this.meta_counter);
     }
 
@@ -231,7 +245,8 @@ export class Mutualism {
             path: [...self.path, document_id],
             collection_id: self.collection_id,
             document_id: document_id,
-            async get(): Promise<mutualism_result>{
+            async get(): Promise<mutualism_result> {
+                if(self.errors){ throw new Error('arbitrary error')};
                 return await get(document_id, self.database, self.meta_counter)
             },
             collection() {}

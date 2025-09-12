@@ -132,8 +132,7 @@ class Query {
                 }
             }
         } catch(err){
-            console.error(err)
-            throw err;
+            return Promise.reject(err);
         }
     }
 
