@@ -201,9 +201,6 @@ describe('Client Library Generation: Library Generation', function () {
         assert.deepEqual(vue, test_against)
     });
 
-    // TODO: delete a document
-    // TODO: error handling
-
     it(`should do a basic query that returns multiple children`, async function () {
         let institution_1 = gen_institution('test institution 1')
         let institution_2 = gen_institution('test institution 2')
@@ -467,10 +464,90 @@ describe('Client Library Generation: Library Generation', function () {
         assert.deepEqual(vue.client.get(client_1._id), client_1);
         assert.deepEqual(vue.institution.get(institution_2._id), institution_2);
         assert.deepEqual(vue, test_against_phase_2);
-
-
     });
+
+    it(`should switch targets when the data changes using update_document_from_external`, async function () {
+        let institution_1 = gen_institution('test institution 1')
+        let institution_2 = gen_institution('test institution 2')
+        let client_1 = gen_client(institution_1, 'test client 1')
+        let institution_database = database(institution_1, institution_2);
+        let client_database = database(client_1);
+        let {
+            vue,
+            api
+        } = get_setup(institution_database, client_database);
+
+        //@ts-expect-error
+        let vitamins = new Vitamins(vue);
+        //@ts-expect-error
+        let query = await vitamins.query(api.collection('institution')?.document('*').collection('client').document(client_1._id) as Collection, undefined,
+            //@ts-expect-error
+            (result: result) => vitamins.query(api.collection('institution') as generated_collection_interface, {_id: result.institution_id }),
+        ).run()
+        await sleep(100);
+
+        let test_against_phase_1 = gen_vue();
+        test_against_phase_1.institution.set(institution_1._id, structuredClone(institution_1));
+        test_against_phase_1.client.set(client_1._id, structuredClone(client_1));
+
+        assert.deepEqual(vue.client.get(client_1._id), client_1)
+        assert.deepEqual(vue.institution.get(institution_1._id), institution_1)
+        assert.deepEqual(vue, test_against_phase_1)
+
+        vitamins.update_document_from_external(client_1._id, Object.assign(client_1, {institution_id: institution_2._id}))
+        await sleep(100);
+
+        let test_against_phase_2 = gen_vue();
+        test_against_phase_2.institution.set(institution_2._id, structuredClone(institution_2));
+        test_against_phase_2.client.set(client_1._id, structuredClone(client_1));
+
+        assert.deepEqual(vue.client.get(client_1._id), client_1);
+        assert.deepEqual(vue.institution.get(institution_2._id), institution_2);
+        assert.deepEqual(vue, test_against_phase_2);
+    });
+
+    it(`should handle an external deletion`, async function () {
+        let institution_1 = gen_institution('test institution 1')
+        let client_1 = gen_client(institution_1, 'test client 1')
+        let project_1 = gen_project(institution_1, client_1, 'test project 1')
+        let institution_database = database(institution_1);
+        let client_database = database(client_1);
+        let project_database = database(project_1);
+        let {
+            vue,
+            api
+        } = get_setup(institution_database, client_database, project_database);
+
+        //@ts-expect-error
+        let vitamins = new Vitamins(vue);
+        let query = await vitamins.query(api.collection('institution') as Collection, {},
+            (result: result) => vitamins.query(api.collection('institution')?.document('*').collection('client') as generated_collection_interface, {institution_id: result._id }, 
+                (result: result) => vitamins.query(api.collection('institution')?.document('*').collection('project') as generated_collection_interface, {client_id: result._id })
+            ),
+        ).run()
+        await sleep(100);
+
+        let test_against_phase_1 = gen_vue();
+        test_against_phase_1.institution.set(institution_1._id, structuredClone(institution_1));
+        test_against_phase_1.client.set(client_1._id, structuredClone(client_1));
+        test_against_phase_1.project.set(project_1._id, structuredClone(project_1));
+
+        assert.deepEqual(vue, test_against_phase_1)
+
+        vitamins.delete_document_from_external(client_1._id);
+        await sleep(100);
+
+        let test_against_phase_2 = gen_vue();
+        test_against_phase_2.institution.set(institution_1._id, structuredClone(institution_1));
+
+        assert.deepEqual(vue, test_against_phase_2)
+    });
+
+
+    // TODO: typing
+    // TODO: error handling
+    
 
     
 
-})
+});

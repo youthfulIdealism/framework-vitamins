@@ -43,12 +43,14 @@ export declare class Vitamins {
     debug_on: boolean;
     constructor(vue: App);
     query(collection: generated_collection_interface, query_parameters: any, ...generators: child_generator[]): Query;
+    delete_document_from_external(document_id: string): void;
+    update_document_from_external(document_id: string, data: result): void;
     _debug(...print: any[]): void;
     _find_existing_query(query: Query): Query;
     _add_query(query: Query): void;
     _delete_query(query: Query): void;
     _add_document(document: Document): void;
-    _update_data(reference: generated_collection_interface | generated_document_interface, document_id: string, data: result, query: Query): void;
+    _update_data(reference: generated_collection_interface | generated_document_interface | undefined, document_id: string, data: result, query?: Query): void;
     _generate_child_queries(document: Document): Query[];
     _cleanup(queries: Query[], documents: Document[]): void;
 }

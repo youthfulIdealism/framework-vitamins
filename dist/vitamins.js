@@ -220,6 +220,22 @@ export class Vitamins {
         let generated_query = new Query(this, collection, query_parameters, generators);
         return generated_query;
     }
+    delete_document_from_external(document_id) {
+        let document = this.documents.get(document_id);
+        if (!document) {
+            return;
+        }
+        let parent_queries = Array.from(document.parents).map(ele => this.all_queries.get(ele));
+        document.parents.clear();
+        let child_queries = Array.from(document.children).map(ele => this.all_queries.get(ele));
+        document.children.clear();
+        parent_queries.forEach(ele => ele.unlink_child(document_id));
+        child_queries.forEach(ele => ele.unlink_parent(document_id));
+        this._cleanup([...parent_queries, ...child_queries], [document]);
+    }
+    update_document_from_external(document_id, data) {
+        return this._update_data(undefined, document_id, data);
+    }
     _debug(...print) {
         if (this.debug_on) {
             console.log(print);
@@ -247,14 +263,19 @@ export class Vitamins {
         this.documents.set(document.document._id, document);
     }
     _update_data(reference, document_id, data, query) {
-        this._debug(`updating data for a ${reference.collection_id} ${document_id}`);
         let document = this.documents.get(document_id);
-        if (!document) {
+        if (!document && reference) {
             document = new Document(this, reference, data);
             this._add_document(document);
         }
+        if (!document && !reference) {
+            return;
+        }
+        this._debug(`updating data for a ${document.reference.collection_id} ${document_id}`);
         document.document = data;
-        query.link_child(document);
+        if (query) {
+            query.link_child(document);
+        }
         let document_previous_children = Array.from(document.children);
         document.children.clear();
         for (let child_query_id of document_previous_children) {
@@ -272,13 +293,13 @@ export class Vitamins {
         }
         this._cleanup(test_queries_for_deletion, []);
         let cloned_data = structuredClone(data);
-        if (!this.vue[reference.collection_id]) {
-            throw new Error(`when updating ${reference.collection_id}, found that the vue app does not have a ${reference.collection_id} key`);
+        if (!this.vue[document.reference.collection_id]) {
+            throw new Error(`when updating ${document.reference.collection_id}, found that the vue app does not have a ${document.reference.collection_id} key`);
         }
-        if (!(this.vue[reference.collection_id] instanceof Map)) {
-            throw new Error(`when updating ${reference.collection_id}, found that the vue app key ${reference.collection_id} is not a map. It should be a Map<string, ${reference.collection_id}>`);
+        if (!(this.vue[document.reference.collection_id] instanceof Map)) {
+            throw new Error(`when updating ${document.reference.collection_id}, found that the vue app key ${document.reference.collection_id} is not a map. It should be a Map<string, ${document.reference.collection_id}>`);
         }
-        this.vue[reference.collection_id].set(document_id, cloned_data);
+        this.vue[document.reference.collection_id].set(document_id, cloned_data);
     }
     _generate_child_queries(document) {
         let all_generated_child_queries = [];

@@ -235,6 +235,22 @@ export class Vitamins {
         return generated_query;
     }
 
+    delete_document_from_external(document_id: string) {
+        let document = this.documents.get(document_id);
+        if(!document) { return; }
+        let parent_queries = Array.from(document.parents).map(ele => this.all_queries.get(ele));
+        document.parents.clear();
+        let child_queries =  Array.from(document.children).map(ele => this.all_queries.get(ele));
+        document.children.clear();
+        parent_queries.forEach(ele => ele.unlink_child(document_id));
+        child_queries.forEach(ele => ele.unlink_parent(document_id));
+        this._cleanup([...parent_queries, ...child_queries], [document]);
+    }
+
+    update_document_from_external(document_id: string, data: result) {
+        return this._update_data(undefined, document_id, data);
+    }
+
     _debug(...print: any[]) {
         if(this.debug_on){ console.log(print); }
     }
@@ -268,15 +284,16 @@ export class Vitamins {
     }
 
     // TODO: do I need to be accepting an array of documents so that I can link/unlink all of them?
-    _update_data(reference: generated_collection_interface | generated_document_interface, document_id: string, data: result, query: Query) {
-        this._debug(`updating data for a ${reference.collection_id} ${document_id}`);
-        
+    _update_data(reference: generated_collection_interface | generated_document_interface | undefined, document_id: string, data: result, query?: Query) {
         // if this document doesn't already exist, create it.
         let document = this.documents.get(document_id);
-        if(!document) {
+        if(!document && reference) {
             document = new Document(this, reference, data);
             this._add_document(document);
         }
+        if(!document && !reference){ return; }
+
+        this._debug(`updating data for a ${document.reference.collection_id} ${document_id}`);
 
         // update the data for the document 
         document.document = data;
@@ -284,7 +301,10 @@ export class Vitamins {
         // make the query a parent of the document. Query's parent_of method already checks to make sure it's
         // not already a parent, so you don't need to do that again here.
         // TODO: unlink documents!
-        query.link_child(document);
+        if(query){
+            query.link_child(document);
+        }
+        
 
         // remove doc's existing children, because we're regenerating all the query connections
         let document_previous_children = Array.from(document.children);
@@ -317,17 +337,17 @@ export class Vitamins {
         let cloned_data = structuredClone(data);
 
         //@ts-expect-error
-        if(!this.vue[reference.collection_id]){
-            throw new Error(`when updating ${reference.collection_id}, found that the vue app does not have a ${reference.collection_id} key`);
+        if(!this.vue[document.reference.collection_id]){
+            throw new Error(`when updating ${document.reference.collection_id}, found that the vue app does not have a ${document.reference.collection_id} key`);
         }
 
         //@ts-expect-error
-        if(!(this.vue[reference.collection_id] instanceof Map)){
-            throw new Error(`when updating ${reference.collection_id}, found that the vue app key ${reference.collection_id} is not a map. It should be a Map<string, ${reference.collection_id}>`);
+        if(!(this.vue[document.reference.collection_id] instanceof Map)){
+            throw new Error(`when updating ${document.reference.collection_id}, found that the vue app key ${document.reference.collection_id} is not a map. It should be a Map<string, ${document.reference.collection_id}>`);
         }
 
         //@ts-expect-error
-        (this.vue[reference.collection_id] as Map).set(document_id, cloned_data);
+        (this.vue[document.reference.collection_id] as Map).set(document_id, cloned_data);
     }
 
     _generate_child_queries(document: Document): Query[] {
@@ -335,7 +355,7 @@ export class Vitamins {
         // produce institution documents. These documents are registered as children of the query.
         // each query also has the ability to produce more queries, which are registered as query generators.
         // So, the general process to generate child queries is to find all the child documents
-        // of a query, call the query generator for each child document, and--if
+        // of a query, call the query generator for each child document, and--ifs
         // the query hasn't been generated before--attach it to the child document.
 
         // keep a list of all the queries generated, so that we can return them at the end of this process
