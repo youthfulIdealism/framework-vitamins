@@ -325,7 +325,7 @@ export class Vitamins {
                     throw new Error(`when updating ${document.reference.collection_id}, found that the vue app key ${document.reference.collection_id} is not a map. It should be a Map<string, ${document.reference.collection_id}>`);
                 }
                 ;
-                document.reference.collection_id.delete(document.id);
+                this.vue[document.reference.collection_id].delete(document.id);
             }
         }
     }
