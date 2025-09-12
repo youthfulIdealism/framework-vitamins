@@ -1,9 +1,9 @@
 import { v4 as uuid } from 'uuid'
 import { App } from 'vue'
-import { generated_collection_interface, generated_document_interface, result } from './type_generated_collection.js'
+import { generated_collection_interface, generated_document_interface, Infer_Collection_Returntype, result } from './type_generated_collection.js'
 
 type query_operation = "get" | "query";
-type child_generator = (result: result) => Query;
+type child_generator<T extends result> = (result: T) => Query;
 
 
 
@@ -13,10 +13,10 @@ class Document {
     vitamins: Vitamins;
     children: Set<string>;
     parents: Set<string>;
-    reference: generated_collection_interface | generated_document_interface;
+    reference: generated_collection_interface<result> | generated_document_interface<result>;
     document: result;
 
-    constructor(vitamins: Vitamins, reference: generated_collection_interface | generated_document_interface, document: result) {
+    constructor(vitamins: Vitamins, reference: generated_collection_interface<result> | generated_document_interface<result>, document: result) {
         this.vitamins = vitamins;
         this.children = new Set();
         this.parents = new Set();
@@ -37,16 +37,16 @@ class Query {
     children: Set<string>;
     parents: Set<string>;
 
-    reference: generated_collection_interface | generated_document_interface;
+    reference: generated_collection_interface<result> | generated_document_interface<result>;
     collection_path: string;
     operation: query_operation;
     document_id?: string;
     query_parameters?: any;
 
-    child_generators: child_generator[];
+    child_generators: child_generator<result>[];
     has_run: boolean;
 
-    constructor(vitamins: Vitamins, reference: generated_collection_interface | generated_document_interface, argument?: object, child_generators: child_generator[] = []){
+    constructor(vitamins: Vitamins, reference: generated_collection_interface<result> | generated_document_interface<result>, argument?: object, child_generators: child_generator<result>[] = []){
         this.id = uuid();
         vitamins._debug(`constructing query ${reference.collection_id} ${this.id}`)
         this.children = new Set();
@@ -55,12 +55,12 @@ class Query {
         this.reference = reference;
         this.child_generators = child_generators;
         // if the reference has a query method, then it's a collection reference and we should do query operations on it
-        if((reference as generated_collection_interface).query) {
+        if((reference as generated_collection_interface<result>).query) {
             this.query_parameters = argument as any;
             this.collection_path = this.reference.path.join('/')
             this.operation = 'query';
-        } else if((reference as generated_document_interface).get) {// if the reference has a get method, then it's a document reference and we should do get operations on it
-            this.document_id = (reference as generated_document_interface).document_id;
+        } else if((reference as generated_document_interface<result>).get) {// if the reference has a get method, then it's a document reference and we should do get operations on it
+            this.document_id = (reference as generated_document_interface<result>).document_id;
             this.collection_path = [...this.reference.path, this.document_id].join('/')
             this.operation = 'get';
         } else {
@@ -118,13 +118,13 @@ class Query {
         this.has_run = true;
         try {
             if(this.operation === 'get'){
-                let reference = this.reference as generated_document_interface;
+                let reference = this.reference as generated_document_interface<result>;
                 // TODO: how do I want to handle errors? This clearly needs to be in a try-catch.
                 let result = await reference.get();
 
                 this.vitamins._update_data(reference, result._id, result, this);
             } else if(this.operation === 'query'){
-                let reference = this.reference as generated_collection_interface;
+                let reference = this.reference as generated_collection_interface<result>;
                 // TODO: how do I want to handle errors? This clearly needs to be in a try-catch.
                 let results = await reference.query(this.query_parameters);
                 for(let result of results){
@@ -224,7 +224,7 @@ export class Vitamins {
         this.debug_on = false;
     }
 
-    query(collection: generated_collection_interface, query_parameters: any, ...generators: child_generator[]): Query {
+    query<Collection extends generated_collection_interface<result>>(collection: Collection, query_parameters: any, ...generators: child_generator<Infer_Collection_Returntype<Collection>>[]): Query {
         // if queries_by_collection does not yet have a key for the relevant collection, create one. 
         if(!this.queries_by_collection.has(collection.collection_id)){ this.queries_by_collection.set(collection.collection_id, new Set()); }
         
@@ -284,7 +284,7 @@ export class Vitamins {
     }
 
     // TODO: do I need to be accepting an array of documents so that I can link/unlink all of them?
-    _update_data(reference: generated_collection_interface | generated_document_interface | undefined, document_id: string, data: result, query?: Query) {
+    _update_data(reference: generated_collection_interface<result> | generated_document_interface<result> | undefined, document_id: string, data: result, query?: Query) {
         // if this document doesn't already exist, create it.
         let document = this.documents.get(document_id);
         if(!document && reference) {

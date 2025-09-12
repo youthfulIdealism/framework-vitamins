@@ -5,24 +5,6 @@ import { Vitamins } from '../dist/vitamins'
 
 import { Client, Institution, Mutualism, Project, gen_institution, gen_client, gen_project, gen_mutualism } from './utils/testing_harness.js'
 
-function db_query_mock(db: Map<string, any>, query: object){
-    let retval: any[] = [];
-    for(let db_entry of db.values()) {
-        let matches = true;
-        for(let [key, value] of Object.entries(query)){
-            if(Array.isArray(db_entry[key])) { 
-                if(!db_entry[key].includes(value)) { matches = false; break; }
-            }
-            else if(db_entry[key] !== value) { matches = false; break; }
-        }
-
-        if(matches){
-            retval.push(db_entry);
-        }
-    }
-    return retval;
-}
-
 describe('Client Library Generation: Library Generation', function () { 
     
     function get_setup(
@@ -181,7 +163,7 @@ describe('Client Library Generation: Library Generation', function () {
         //@ts-expect-error
         let vitamins = new Vitamins(vue);
         vitamins.query(api.collection('institution'), {},
-            (result: result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {})
+            (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {})
         ).run()
         await sleep(100);
 
@@ -208,7 +190,7 @@ describe('Client Library Generation: Library Generation', function () {
         let vitamins = new Vitamins(vue);
         //@ts-expect-error
         vitamins.query(api.collection('institution').document(institution_1._id), undefined,
-            (result: result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {})
+            (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {})
         ).run()
         await sleep(100);
 
@@ -243,8 +225,8 @@ describe('Client Library Generation: Library Generation', function () {
         //@ts-expect-error
         let vitamins = new Vitamins(vue);
         vitamins.query(api.collection('institution'), {},
-            (result: result) => vitamins.query(api.collection('institution')?.document(result._id).collection('project'), {client_id: client_1._id}),
-            (result: result) => vitamins.query(api.collection('institution')?.document(result._id).collection('project'), {client_id: client_2._id}),
+            (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('project'), {client_id: client_1._id}),
+            (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('project'), {client_id: client_2._id}),
         ).run()
         await sleep(100);
 
@@ -287,7 +269,7 @@ describe('Client Library Generation: Library Generation', function () {
         //@ts-expect-error
         let vitamins = new Vitamins(vue);
         vitamins.query(api.collection('institution'), {},
-            (result: result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {_id: client_1._id}),
+            (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {_id: client_1._id}),
         ).run()
         await sleep(100);
 
@@ -320,13 +302,13 @@ describe('Client Library Generation: Library Generation', function () {
         let vitamins = new Vitamins(vue);
         //@ts-expect-error
         vitamins.query(api.collection('institution')?.document(institution_1._id) as Collection, undefined,
-            (result: result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {_id: client_1._id}),
-            (result: result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {_id: client_2._id}),
+            (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {_id: client_1._id}),
+            (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {_id: client_2._id}),
         ).run()
         //@ts-expect-error
         vitamins.query(api.collection('institution')?.document(institution_1._id) as Collection, undefined,
-            (result: result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {_id: client_2._id}),
-            (result: result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {_id: client_3._id}),
+            (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {_id: client_2._id}),
+            (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {_id: client_3._id}),
         ).run()
         await sleep(100);
 
@@ -363,7 +345,7 @@ describe('Client Library Generation: Library Generation', function () {
         //@ts-expect-error
         let query = await vitamins.query(api.collection('institution')?.document('*').collection('client').document(client_1._id) as Collection, undefined,
             //@ts-expect-error
-            (result: result) => vitamins.query(api.collection('institution'), {_id: result.institution_id }),
+            (result) => vitamins.query(api.collection('institution'), {_id: result.institution_id }),
         ).run()
         await sleep(100);
 
@@ -404,7 +386,7 @@ describe('Client Library Generation: Library Generation', function () {
         //@ts-expect-error
         let query = await vitamins.query(api.collection('institution')?.document('*').collection('client').document(client_1._id) as Collection, undefined,
             //@ts-expect-error
-            (result: result) => vitamins.query(api.collection('institution'), {_id: result.institution_id }),
+            (result) => vitamins.query(api.collection('institution'), {_id: result.institution_id }),
         ).run()
         await sleep(100);
 
@@ -443,8 +425,8 @@ describe('Client Library Generation: Library Generation', function () {
         //@ts-expect-error
         let vitamins = new Vitamins(vue);
         let query = await vitamins.query(api.collection('institution'), {},
-            (result: result) => vitamins.query(api.collection('institution')?.document('*').collection('client'), {institution_id: result._id }, 
-                (result: result) => vitamins.query(api.collection('institution')?.document('*').collection('project'), {client_id: result._id })
+            (result) => vitamins.query(api.collection('institution')?.document('*').collection('client'), {institution_id: result._id }, 
+                (result) => vitamins.query(api.collection('institution')?.document('*').collection('project'), {client_id: result._id })
             ),
         ).run()
         await sleep(100);
@@ -465,11 +447,5 @@ describe('Client Library Generation: Library Generation', function () {
         assert.deepEqual(vue, test_against_phase_2)
     });
 
-
-    // TODO: typing
     // TODO: error handling
-    
-
-    
-
 });
