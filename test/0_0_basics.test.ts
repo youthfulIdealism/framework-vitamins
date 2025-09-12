@@ -2,7 +2,8 @@ import assert from "assert";
 
 import { generated_collection_interface, result } from '../dist/type_generated_collection'
 import { Vitamins } from '../dist/vitamins'
-import { v4 as uuid } from 'uuid'
+
+import { Client, Institution, Mutualism, Project, gen_institution, gen_client, gen_project, gen_mutualism } from './utils/testing_harness.js'
 
 function db_query_mock(db: Map<string, any>, query: object){
     let retval: any[] = [];
@@ -22,49 +23,6 @@ function db_query_mock(db: Map<string, any>, query: object){
     return retval;
 }
 
-class Collection {
-    path: string[]
-    collection_id: string;
-    database: Map<string, any>
-    children: {[key: string]: Collection}
-    meta_counter: Map<string, any>
-
-    constructor(path: string[], collection_id: string, database: Map<string, any>, children: {[key: string]: Collection}) {
-        this.path = path;
-        this.collection_id = collection_id;
-        this.database = database;
-        this.children = children;
-        this.meta_counter = new Map();
-    }
-
-    async query(query: any): Promise<result[]> {
-        let results = db_query_mock(this.database, query);
-        for(let result of results){
-            let count = this.meta_counter.get(result._id) ?? 0;
-            this.meta_counter.set(result._id, count + 1);
-        }
-        return results;
-    }
-
-    document(document_id: string) {
-        let self = this;
-        return {
-            path: [...self.path, document_id],
-            collection_id: self.collection_id,
-            document_id: document_id,
-            async get(): Promise<result>{
-                let count = self.meta_counter.get(document_id) ?? 0;
-                self.meta_counter.set(document_id, count + 1);
-                return self.database.get(document_id);
-            },
-            collection(collection_id: string) {
-                return self.children[collection_id];
-            }
-        }
-    }
-}
-
-
 describe('Client Library Generation: Library Generation', function () { 
     
     function get_setup(
@@ -74,42 +32,39 @@ describe('Client Library Generation: Library Generation', function () {
         mutualsm_database: Map<string, any> = new Map<string, any>()
     ) {
 
-        let collection_mutualism = new Collection(
+        let collection_mutualism = new Mutualism(
             ['institution', 'client', 'mutualism'],
             'mutualism',
-            mutualsm_database,
-            {}
+            mutualsm_database
         )
 
-        let collection_project = new Collection(
+        let collection_project = new Project(
             ['institution', 'project'],
             'project',
-            project_database,
-            {}
+            project_database
         )
 
-        let collection_client = new Collection(
+        let collection_client = new Client(
             ['institution', 'client'],
             'client',
             client_database,
-            {
-                'mutualism': collection_mutualism
-            }
+            collection_mutualism
         )
 
-        let collection_institution = new Collection(
+        let collection_institution = new Institution(
             ['institution'],
             'institution',
             institution_database,
-            {
-                'client': collection_client,
-                'project': collection_project
-            }
+            collection_client,
+            collection_project
         )
 
         let api = {
-            collection(collection_id: string){
-                if(collection_id === 'institution'){ return collection_institution; }
+            collection(collection_id: 'institution'){
+                switch(collection_id) {
+                    case 'institution':
+                        return collection_institution
+                }
             }
         }
 
@@ -131,39 +86,6 @@ describe('Client Library Generation: Library Generation', function () {
             client: new Map<string, any>(),
             project: new Map<string, any>(),
             mutualism: new Map<string, any>(),
-        }
-    }
-
-    function gen_institution(name: string){
-        return {
-            _id: uuid(),
-            name: name
-        }
-    }
-
-    function gen_client(institution: result, name: string) {
-        return {
-            _id: uuid(),
-            institution_id: institution._id,
-            name: name
-        }
-    }
-
-    function gen_project(institution: result, client: result, name: string) {
-        return {
-            _id: uuid(),
-            institution_id: institution._id,
-            client_id: client._id,
-            name: name
-        }
-    }
-
-    function gen_mutualism(institution: result, clients: result[], name: string) {
-        return {
-            _id: uuid(),
-            institution_id: institution._id,
-            client_ids: clients.map(ele => ele._id),
-            name: name
         }
     }
 
@@ -191,7 +113,7 @@ describe('Client Library Generation: Library Generation', function () {
 
         //@ts-expect-error
         let vitamins = new Vitamins(vue);
-        await vitamins.query(api.collection('institution') as Collection, {}).run()
+        await vitamins.query(api.collection('institution'), {}).run()
         await sleep(100);
 
         let test_against = gen_vue();
@@ -213,7 +135,7 @@ describe('Client Library Generation: Library Generation', function () {
 
         //@ts-expect-error
         let vitamins = new Vitamins(vue);
-        vitamins.query(api.collection('institution') as Collection, {}).run()
+        vitamins.query(api.collection('institution'), {}).run()
         await sleep(100);
 
         let test_against = gen_vue();
@@ -258,8 +180,8 @@ describe('Client Library Generation: Library Generation', function () {
 
         //@ts-expect-error
         let vitamins = new Vitamins(vue);
-        vitamins.query(api.collection('institution') as Collection, {},
-            (result: result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client') as generated_collection_interface, {})
+        vitamins.query(api.collection('institution'), {},
+            (result: result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {})
         ).run()
         await sleep(100);
 
@@ -286,7 +208,7 @@ describe('Client Library Generation: Library Generation', function () {
         let vitamins = new Vitamins(vue);
         //@ts-expect-error
         vitamins.query(api.collection('institution').document(institution_1._id), undefined,
-            (result: result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client') as generated_collection_interface, {})
+            (result: result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {})
         ).run()
         await sleep(100);
 
@@ -320,9 +242,9 @@ describe('Client Library Generation: Library Generation', function () {
 
         //@ts-expect-error
         let vitamins = new Vitamins(vue);
-        vitamins.query(api.collection('institution') as Collection, {},
-            (result: result) => vitamins.query(api.collection('institution')?.document(result._id).collection('project') as generated_collection_interface, {client_id: client_1._id}),
-            (result: result) => vitamins.query(api.collection('institution')?.document(result._id).collection('project') as generated_collection_interface, {client_id: client_2._id}),
+        vitamins.query(api.collection('institution'), {},
+            (result: result) => vitamins.query(api.collection('institution')?.document(result._id).collection('project'), {client_id: client_1._id}),
+            (result: result) => vitamins.query(api.collection('institution')?.document(result._id).collection('project'), {client_id: client_2._id}),
         ).run()
         await sleep(100);
 
@@ -364,8 +286,8 @@ describe('Client Library Generation: Library Generation', function () {
 
         //@ts-expect-error
         let vitamins = new Vitamins(vue);
-        vitamins.query(api.collection('institution') as Collection, {},
-            (result: result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client') as generated_collection_interface, {_id: client_1._id}),
+        vitamins.query(api.collection('institution'), {},
+            (result: result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {_id: client_1._id}),
         ).run()
         await sleep(100);
 
@@ -398,13 +320,13 @@ describe('Client Library Generation: Library Generation', function () {
         let vitamins = new Vitamins(vue);
         //@ts-expect-error
         vitamins.query(api.collection('institution')?.document(institution_1._id) as Collection, undefined,
-            (result: result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client') as generated_collection_interface, {_id: client_1._id}),
-            (result: result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client') as generated_collection_interface, {_id: client_2._id}),
+            (result: result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {_id: client_1._id}),
+            (result: result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {_id: client_2._id}),
         ).run()
         //@ts-expect-error
         vitamins.query(api.collection('institution')?.document(institution_1._id) as Collection, undefined,
-            (result: result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client') as generated_collection_interface, {_id: client_2._id}),
-            (result: result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client') as generated_collection_interface, {_id: client_3._id}),
+            (result: result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {_id: client_2._id}),
+            (result: result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {_id: client_3._id}),
         ).run()
         await sleep(100);
 
@@ -441,7 +363,7 @@ describe('Client Library Generation: Library Generation', function () {
         //@ts-expect-error
         let query = await vitamins.query(api.collection('institution')?.document('*').collection('client').document(client_1._id) as Collection, undefined,
             //@ts-expect-error
-            (result: result) => vitamins.query(api.collection('institution') as generated_collection_interface, {_id: result.institution_id }),
+            (result: result) => vitamins.query(api.collection('institution'), {_id: result.institution_id }),
         ).run()
         await sleep(100);
 
@@ -482,7 +404,7 @@ describe('Client Library Generation: Library Generation', function () {
         //@ts-expect-error
         let query = await vitamins.query(api.collection('institution')?.document('*').collection('client').document(client_1._id) as Collection, undefined,
             //@ts-expect-error
-            (result: result) => vitamins.query(api.collection('institution') as generated_collection_interface, {_id: result.institution_id }),
+            (result: result) => vitamins.query(api.collection('institution'), {_id: result.institution_id }),
         ).run()
         await sleep(100);
 
@@ -520,9 +442,9 @@ describe('Client Library Generation: Library Generation', function () {
 
         //@ts-expect-error
         let vitamins = new Vitamins(vue);
-        let query = await vitamins.query(api.collection('institution') as Collection, {},
-            (result: result) => vitamins.query(api.collection('institution')?.document('*').collection('client') as generated_collection_interface, {institution_id: result._id }, 
-                (result: result) => vitamins.query(api.collection('institution')?.document('*').collection('project') as generated_collection_interface, {client_id: result._id })
+        let query = await vitamins.query(api.collection('institution'), {},
+            (result: result) => vitamins.query(api.collection('institution')?.document('*').collection('client'), {institution_id: result._id }, 
+                (result: result) => vitamins.query(api.collection('institution')?.document('*').collection('project'), {client_id: result._id })
             ),
         ).run()
         await sleep(100);
