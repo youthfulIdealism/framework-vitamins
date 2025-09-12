@@ -48,7 +48,7 @@ class Query {
 
     constructor(vitamins: Vitamins, reference: generated_collection_interface | generated_document_interface, argument?: object, child_generators: child_generator[] = []){
         this.id = uuid();
-        console.log(`constructing query ${reference.collection_id} ${this.id}`)
+        vitamins._debug(`constructing query ${reference.collection_id} ${this.id}`)
         this.children = new Set();
         this.parents = new Set();
         this.vitamins = vitamins;
@@ -70,17 +70,17 @@ class Query {
     }
 
     async rerun() {
-        console.log(`RERUNNING QUERY`)
+        this.vitamins._debug(`RERUNNING QUERY`)
         this.has_run = false;
         await this._fetch();
     }
 
     async run(run_from_root: boolean = true): Promise<Query> {
-        console.log(`running ${this.reference.collection_id}`)
+        this.vitamins._debug(`running ${this.reference.collection_id}`)
        
         // automatically replace yourself with an existing query if appliccable
         let self = this.vitamins._find_existing_query(this) ?? this;
-        if(self.id !== this.id) { console.log('replacing self with doppleganger')}
+        if(self.id !== this.id) { this.vitamins._debug('replacing self with doppleganger')}
 
         if(run_from_root && !self.parents.has('root')){
             self.parents.add('root');
@@ -93,16 +93,13 @@ class Query {
             // if any generators were specified, look for new ones and add them.
             for(let generator of this.child_generators) {
                 if(!self.child_generators.includes(generator)){
-                    console.log(`ADDING CHILD GENERATOR`)
-                    console.log(generator)
+                    this.vitamins._debug(`ADDING CHILD GENERATOR`)
+                    this.vitamins._debug(generator)
                     self.child_generators.push(generator);
                 }
             }
 
             // generate the child queries for the new generators, since that wouldn't otherwise happen.
-            //this._generate_child_queries(query, generators);
-            //let new_child_queries = this.vitamins._generate_child_queries(self, this.child_generators);
-            //new_child_queries.forEach(ele => this.vitamins._add_query(ele));
             for(let child_id of this.children) {
                 let document = this.vitamins.documents.get(child_id);
                 let generated_child_queries = this.vitamins._generate_child_queries(document);
@@ -205,11 +202,11 @@ function compare_array(a: any[], b: any[]){
 }
 
 function quickprint(query: Query){
-    console.log({
+    return {
         id: query.id,
         collection: query.reference.collection_id,
         query_parameters: query.query_parameters
-    })
+    }
 }
 
 export class Vitamins {
@@ -217,12 +214,14 @@ export class Vitamins {
     documents: Map<string, Document> // document id -> document
     all_queries: Map<string, Query>
     queries_by_collection: Map<string, Set<Query>>// collection id -> document[]
+    debug_on: boolean; 
 
     constructor(vue: App) {
         this.vue = vue;
         this.documents = new Map();
         this.queries_by_collection = new Map();
         this.all_queries = new Map()
+        this.debug_on = false;
     }
 
     query(collection: generated_collection_interface, query_parameters: any, ...generators: child_generator[]): Query {
@@ -231,26 +230,13 @@ export class Vitamins {
         
         // if the created query already exists within the system, set up to return the existing query instead
         let generated_query = new Query(this, collection, query_parameters, generators);
-        /*let query = this._find_existing_query(generated_query) ?? generated_query;
-
-        console.log(`generating query for collection ${collection.collection_id}`);
-
-        // if we already had that query,....
-        if(query.id !== generated_query.id){
-            console.log('using existing doppleganger')
-            // if any generators were specified, look for new ones and add them.
-            for(let generator of generators) {
-                if(!query.child_generators.includes(generator)){
-                    query.child_generators.push(generator);
-                }
-            }
-
-            // generate the child queries for the new generators, since that wouldn't otherwise happen.
-            this._generate_child_queries(query, generators);
-        }*/
 
         //return query;
         return generated_query;
+    }
+
+    _debug(...print: any[]) {
+        if(this.debug_on){ console.log(print); }
     }
 
     _find_existing_query(query: Query) {
@@ -260,7 +246,7 @@ export class Vitamins {
     }
 
     _add_query(query: Query) {
-        console.log(`attaching query ${query.id}`)
+        this._debug(`attaching query ${query.id}`)
         // if queries_by_collection does not yet have a key for the relevant collection, create one. 
         if(!this.queries_by_collection.has(query.reference.collection_id)){
             this.queries_by_collection.set(query.reference.collection_id, new Set());
@@ -283,7 +269,7 @@ export class Vitamins {
 
     // TODO: do I need to be accepting an array of documents so that I can link/unlink all of them?
     _update_data(reference: generated_collection_interface | generated_document_interface, document_id: string, data: result, query: Query) {
-        console.log(`updating data for a ${reference.collection_id} ${document_id}`);
+        this._debug(`updating data for a ${reference.collection_id} ${document_id}`);
         
         // if this document doesn't already exist, create it.
         let document = this.documents.get(document_id);
@@ -309,16 +295,16 @@ export class Vitamins {
         }
 
         // get the full set of parent queries so that we can re-generate any child queries.
-        //let generated_child_queries = this._generate_child_queries(parent_query);
+        // let generated_child_queries = this._generate_child_queries(parent_query);
         let generated_child_queries = this._generate_child_queries(document);
         generated_child_queries.forEach(ele => this._add_query(ele));
-        generated_child_queries.forEach(ele => quickprint(ele))
+        generated_child_queries.forEach(ele => this._debug(quickprint(ele)))
 
         generated_child_queries.forEach(ele => ele.run(false));
         
         let test_queries_for_deletion: Query[] = document_previous_children.map(query_id => this.all_queries.get(query_id));
         let bugfind = Array.from(document_previous_children).filter(id => !this.all_queries.has(id))
-        if(bugfind.length > 0){ console.log(`BREAKING ID:`); console.log(bugfind); }
+        if(bugfind.length > 0){ this._debug(`BREAKING ID:`); this._debug(bugfind); }
 
         this._cleanup(test_queries_for_deletion, []);
         
@@ -344,79 +330,7 @@ export class Vitamins {
         (this.vue[reference.collection_id] as Map).set(document_id, cloned_data);
     }
 
-    // TODO: do I need to be accepting an array of documents so that I can link/unlink all of them?
-    /*_update_data(parent_query: Query, reference: generated_collection_interface | generated_document_interface, document_id: string, data: result) {
-        console.log(`updating data for ${parent_query.reference.collection_id} ${parent_query.id}`);
-        
-        // if this document doesn't already exist, create it.
-        let document = this.documents.get(document_id);
-        if(!document) {
-            document = new Document(this, reference, data);
-            this._add_document(document);
-        }
-
-        // update the data for the document 
-        document.document = data;
-
-        // make the query a parent of the document. Query's parent_of method already checks to make sure it's
-        // not already a parent, so you don't need to do that again here.
-        // TODO: unlink documents!
-        parent_query.link_child(document);
-
-        // get the full set of parent queries so that we can re-generate any child queries.
-        //let generated_child_queries = this._generate_child_queries(parent_query);
-        let generated_child_queries = this._generate_child_queries(document);
-        generated_child_queries.forEach(ele => this._add_query(ele));
-        generated_child_queries.forEach(ele => quickprint(ele))
-
-        console.log(`produced ${generated_child_queries.length}of ${parent_query.child_generators.length} generated_child_queries (some queries can be removed during deduplication):`)
-        let test_queries_for_deletion: Query[] = Array.from(document.children).filter(ele => ele !== 'root').map(query_id => this.all_queries.get(query_id));
-        //console.log(Array.from(document.children).filter(ele => ele !== 'root'))
-        
-        //console.log(test_queries_for_deletion)
-        let bugfind = Array.from(document.children).filter(ele => ele !== 'root').filter(id => !this.all_queries.has(id))
-        if(bugfind.length > 0){ console.log(`BREAKING ID:`); console.log(bugfind); }
-       
-        
-*/
-        // disconnect and reconnect children, so that any used children are
-        // connected and any unused children get disconnected
-        // TODO: REPLACE
-        /*for(let parent_query of document.parents){
-            parent_query.unlink_child(document);
-        }
-        document.parents = generated_child_queries;*/
-        /*document.unlink_parent(parent_query.id);
-
-        for(let child_query of generated_child_queries){
-            child_query.link_parent(document);
-        }
-
-        this._cleanup(test_queries_for_deletion, []);
-        
-        generated_child_queries.forEach(ele => ele.run(false));
-*/
-        /*
-            Clone the response data to prevent any funkyness if it gets changed in the frontend code,
-            and then load it into Vue.
-        */
-        /*let cloned_data = structuredClone(data);
-
-        //@ts-expect-error
-        if(!this.vue[reference.collection_id]){
-            throw new Error(`when updating ${reference.collection_id}, found that the vue app does not have a ${reference.collection_id} key`);
-        }
-
-        //@ts-expect-error
-        if(!(this.vue[reference.collection_id] instanceof Map)){
-            throw new Error(`when updating ${reference.collection_id}, found that the vue app key ${reference.collection_id} is not a map. It should be a Map<string, ${reference.collection_id}>`);
-        }
-
-        //@ts-expect-error
-        (this.vue[reference.collection_id] as Map).set(document_id, cloned_data);
-    }*/
-
-    _generate_child_queries(document: Document/*, generators?: child_generator[]*/): Query[] {
+    _generate_child_queries(document: Document): Query[] {
         // each query produces documents. So if you get an institution, the query will
         // produce institution documents. These documents are registered as children of the query.
         // each query also has the ability to produce more queries, which are registered as query generators.
@@ -441,25 +355,6 @@ export class Vitamins {
             }
             all_generated_child_queries.push(...generated_child_queries);
         }
-
-        // foe each child document,...
-        /*for(let query_id of query.children){
-            let document = this.documents.get(document_id);
-
-            // generate the child queries,...
-            let generated_child_queries = (generators ?? query.child_generators).map(generator => generator(document.document));
-            for(let q = 0; q < generated_child_queries.length; q++){
-                // if we already had the child query, use the existing one instead of the new one
-                let generated_child_query = generated_child_queries[q];
-                let query = this._find_existing_query(generated_child_query) ?? generated_child_query;
-                if(generated_child_query.id !== query.id ){ generated_child_queries[q] = query; }
-                //this._add_query(generated_child_query);
-                generated_child_query.link_parent(document);
-            }
-
-            // add all the queries to the list of all generated queries for later return
-            all_generated_child_queries.push(...generated_child_queries)
-        }*/
         return Array.from(new Set(all_generated_child_queries));
     }
 
@@ -469,7 +364,6 @@ export class Vitamins {
 
         while(check_queries_queue.length > 0 || check_documents_queue.length > 0) {
             while(check_queries_queue.length > 0){
-                //console.log(check_queries_queue)
                 let query = check_queries_queue.pop();
                 if(query.parents.size > 0){ continue; }
                 

@@ -40,8 +40,10 @@ export declare class Vitamins {
     documents: Map<string, Document>;
     all_queries: Map<string, Query>;
     queries_by_collection: Map<string, Set<Query>>;
+    debug_on: boolean;
     constructor(vue: App);
     query(collection: generated_collection_interface, query_parameters: any, ...generators: child_generator[]): Query;
+    _debug(...print: any[]): void;
     _find_existing_query(query: Query): Query;
     _add_query(query: Query): void;
     _delete_query(query: Query): void;

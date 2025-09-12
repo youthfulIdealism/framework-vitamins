@@ -32,7 +32,7 @@ class Query {
     has_run;
     constructor(vitamins, reference, argument, child_generators = []) {
         this.id = uuid();
-        console.log(`constructing query ${reference.collection_id} ${this.id}`);
+        vitamins._debug(`constructing query ${reference.collection_id} ${this.id}`);
         this.children = new Set();
         this.parents = new Set();
         this.vitamins = vitamins;
@@ -54,15 +54,15 @@ class Query {
         this.has_run = false;
     }
     async rerun() {
-        console.log(`RERUNNING QUERY`);
+        this.vitamins._debug(`RERUNNING QUERY`);
         this.has_run = false;
         await this._fetch();
     }
     async run(run_from_root = true) {
-        console.log(`running ${this.reference.collection_id}`);
+        this.vitamins._debug(`running ${this.reference.collection_id}`);
         let self = this.vitamins._find_existing_query(this) ?? this;
         if (self.id !== this.id) {
-            console.log('replacing self with doppleganger');
+            this.vitamins._debug('replacing self with doppleganger');
         }
         if (run_from_root && !self.parents.has('root')) {
             self.parents.add('root');
@@ -71,8 +71,8 @@ class Query {
         if (self.id !== this.id) {
             for (let generator of this.child_generators) {
                 if (!self.child_generators.includes(generator)) {
-                    console.log(`ADDING CHILD GENERATOR`);
-                    console.log(generator);
+                    this.vitamins._debug(`ADDING CHILD GENERATOR`);
+                    this.vitamins._debug(generator);
                     self.child_generators.push(generator);
                 }
             }
@@ -194,22 +194,24 @@ function compare_array(a, b) {
     return true;
 }
 function quickprint(query) {
-    console.log({
+    return {
         id: query.id,
         collection: query.reference.collection_id,
         query_parameters: query.query_parameters
-    });
+    };
 }
 export class Vitamins {
     vue;
     documents;
     all_queries;
     queries_by_collection;
+    debug_on;
     constructor(vue) {
         this.vue = vue;
         this.documents = new Map();
         this.queries_by_collection = new Map();
         this.all_queries = new Map();
+        this.debug_on = false;
     }
     query(collection, query_parameters, ...generators) {
         if (!this.queries_by_collection.has(collection.collection_id)) {
@@ -218,13 +220,18 @@ export class Vitamins {
         let generated_query = new Query(this, collection, query_parameters, generators);
         return generated_query;
     }
+    _debug(...print) {
+        if (this.debug_on) {
+            console.log(print);
+        }
+    }
     _find_existing_query(query) {
         let collection_queries = this.queries_by_collection.get(query.reference.collection_id);
         let existing_query = Query.find_query(Array.from(collection_queries), query);
         return existing_query;
     }
     _add_query(query) {
-        console.log(`attaching query ${query.id}`);
+        this._debug(`attaching query ${query.id}`);
         if (!this.queries_by_collection.has(query.reference.collection_id)) {
             this.queries_by_collection.set(query.reference.collection_id, new Set());
         }
@@ -240,7 +247,7 @@ export class Vitamins {
         this.documents.set(document.document._id, document);
     }
     _update_data(reference, document_id, data, query) {
-        console.log(`updating data for a ${reference.collection_id} ${document_id}`);
+        this._debug(`updating data for a ${reference.collection_id} ${document_id}`);
         let document = this.documents.get(document_id);
         if (!document) {
             document = new Document(this, reference, data);
@@ -255,13 +262,13 @@ export class Vitamins {
         }
         let generated_child_queries = this._generate_child_queries(document);
         generated_child_queries.forEach(ele => this._add_query(ele));
-        generated_child_queries.forEach(ele => quickprint(ele));
+        generated_child_queries.forEach(ele => this._debug(quickprint(ele)));
         generated_child_queries.forEach(ele => ele.run(false));
         let test_queries_for_deletion = document_previous_children.map(query_id => this.all_queries.get(query_id));
         let bugfind = Array.from(document_previous_children).filter(id => !this.all_queries.has(id));
         if (bugfind.length > 0) {
-            console.log(`BREAKING ID:`);
-            console.log(bugfind);
+            this._debug(`BREAKING ID:`);
+            this._debug(bugfind);
         }
         this._cleanup(test_queries_for_deletion, []);
         let cloned_data = structuredClone(data);

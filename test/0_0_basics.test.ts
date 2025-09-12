@@ -181,30 +181,6 @@ describe('Client Library Generation: Library Generation', function () {
         });
     }
 
-    /*function print_vitamins(vitamins: Vitamins) {
-        console.log(`documents:`)
-        for(let document of vitamins.documents.values()) {
-            console.log(`${document.reference.collection_id} ${document.id}`)
-            for(let child of document.children) {
-                if(!child.id){ child.id = uuid(); }
-                console.log(`\t${child.id}`);
-            }
-        }
-        console.log('')
-        console.log(`queries:`)
-
-        for(let [key, queries] of vitamins.queries.entries()) {
-            console.log('')
-            console.log(`${key}:`)
-            for(let [key, value] of queries.entries()) {
-                console.log(`${value.id}:`)
-                for(let child of value.children) {
-                    console.log(`\t${child.id}`);
-                }
-            }
-        }
-    }*/
-
     it(`should do a basic query`, async function () {
         let institution = gen_institution('test institution')
         let institution_database = database(institution);
@@ -226,8 +202,7 @@ describe('Client Library Generation: Library Generation', function () {
     });
 
     // TODO: delete a document
-    // TODO: refetch a document with the data changed so that it points at a different child
-    // TODO: speed the whole thing up using maps and sets by query ID
+    // TODO: error handling
 
     it(`should do a basic query that returns multiple children`, async function () {
         let institution_1 = gen_institution('test institution 1')
@@ -453,7 +428,7 @@ describe('Client Library Generation: Library Generation', function () {
         assert.equal(api.collection('institution')?.document('*').collection('client').meta_counter.get(client_3._id), 1)
     });
 
-    it.only(`should switch targets when the data changes`, async function () {
+    it(`should switch targets when the data changes`, async function () {
         let institution_1 = gen_institution('test institution 1')
         let institution_2 = gen_institution('test institution 2')
         let client_1 = gen_client(institution_1, 'test client 1')
