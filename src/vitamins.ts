@@ -239,7 +239,7 @@ export class Vitamins {
         if(!this.queries_by_collection.has(collection.collection_id)){ this.queries_by_collection.set(collection.collection_id, new Set()); }
         
         // if the created query already exists within the system, set up to return the existing query instead
-        let generated_query = new Query(this, collection, query_parameters, generators);
+        let generated_query = new Query(this, collection, query_parameters ?? {}, generators);
 
         //return query;
         return generated_query;

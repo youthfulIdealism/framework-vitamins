@@ -223,7 +223,7 @@ export class Vitamins {
         if (!this.queries_by_collection.has(collection.collection_id)) {
             this.queries_by_collection.set(collection.collection_id, new Set());
         }
-        let generated_query = new Query(this, collection, query_parameters, generators);
+        let generated_query = new Query(this, collection, query_parameters ?? {}, generators);
         return generated_query;
     }
     delete_document_from_external(document_id) {
