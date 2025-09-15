@@ -42,6 +42,7 @@ export declare class Vitamins {
     queries_by_collection: Map<string, Set<Query>>;
     debug_on: boolean;
     constructor(vue: App);
+    document<Collection extends generated_collection_interface<result>>(collection: Collection, ...generators: child_generator<Infer_Collection_Returntype<Collection>>[]): Query;
     query<Collection extends generated_collection_interface<result>>(collection: Collection, query_parameters: any, ...generators: child_generator<Infer_Collection_Returntype<Collection>>[]): Query;
     delete_document_from_external(document_id: string): void;
     update_document_from_external(document_id: string, data: result): void;

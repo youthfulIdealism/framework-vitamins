@@ -212,6 +212,13 @@ export class Vitamins {
         this.all_queries = new Map();
         this.debug_on = false;
     }
+    document(collection, ...generators) {
+        if (!this.queries_by_collection.has(collection.collection_id)) {
+            this.queries_by_collection.set(collection.collection_id, new Set());
+        }
+        let generated_query = new Query(this, collection, undefined, generators);
+        return generated_query;
+    }
     query(collection, query_parameters, ...generators) {
         if (!this.queries_by_collection.has(collection.collection_id)) {
             this.queries_by_collection.set(collection.collection_id, new Set());

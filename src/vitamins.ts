@@ -223,6 +223,17 @@ export class Vitamins {
         this.debug_on = false;
     }
 
+    document<Collection extends generated_collection_interface<result>>(collection: Collection, ...generators: child_generator<Infer_Collection_Returntype<Collection>>[]): Query {
+        // if queries_by_collection does not yet have a key for the relevant collection, create one. 
+        if(!this.queries_by_collection.has(collection.collection_id)){ this.queries_by_collection.set(collection.collection_id, new Set()); }
+        
+        // if the created query already exists within the system, set up to return the existing query instead
+        let generated_query = new Query(this, collection, undefined, generators);
+
+        //return query;
+        return generated_query;
+    }
+
     query<Collection extends generated_collection_interface<result>>(collection: Collection, query_parameters: any, ...generators: child_generator<Infer_Collection_Returntype<Collection>>[]): Query {
         // if queries_by_collection does not yet have a key for the relevant collection, create one. 
         if(!this.queries_by_collection.has(collection.collection_id)){ this.queries_by_collection.set(collection.collection_id, new Set()); }

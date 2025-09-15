@@ -136,7 +136,7 @@ describe('Client Library Generation: Library Generation', function () {
         //@ts-expect-error
         let vitamins = new Vitamins(vue);
         //@ts-expect-error
-        await vitamins.query(api.collection('institution')?.document(institution._id), {}).run()
+        await vitamins.document(api.collection('institution')?.document(institution._id)).run()
         await sleep(20);
 
         let test_against = gen_vue();
@@ -339,7 +339,7 @@ describe('Client Library Generation: Library Generation', function () {
         //@ts-expect-error
         let vitamins = new Vitamins(vue);
         //@ts-expect-error
-        let query = await vitamins.query(api.collection('institution')?.document('*').collection('client').document(client_1._id) as Collection, undefined,
+        let query = await vitamins.document(api.collection('institution')?.document('*').collection('client').document(client_1._id) as Collection,
             //@ts-expect-error
             (result) => vitamins.query(api.collection('institution'), {_id: result.institution_id }),
         ).run()
@@ -380,7 +380,7 @@ describe('Client Library Generation: Library Generation', function () {
         //@ts-expect-error
         let vitamins = new Vitamins(vue);
         //@ts-expect-error
-        let query = await vitamins.query(api.collection('institution')?.document('*').collection('client').document(client_1._id) as Collection, undefined,
+        let query = await vitamins.document(api.collection('institution')?.document('*').collection('client').document(client_1._id) as Collection,
             //@ts-expect-error
             (result) => vitamins.query(api.collection('institution'), {_id: result.institution_id }),
         ).run()
@@ -495,7 +495,7 @@ describe('Client Library Generation: Library Generation', function () {
             //@ts-expect-error
             let vitamins = new Vitamins(vue);
             //@ts-expect-error
-            await vitamins.query(api.collection('institution').document(institution_1._id), undefined,
+            await vitamins.document(api.collection('institution').document(institution_1._id),
                 (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {})
             ).run()
         }, 'Error: arbitrary error');
