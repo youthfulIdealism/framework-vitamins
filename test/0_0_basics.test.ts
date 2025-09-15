@@ -16,26 +16,22 @@ describe('Client Library Generation: Library Generation', function () {
 
         let collection_mutualism = new Mutualism(
             ['institution', 'client', 'mutualism'],
-            'mutualism',
             mutualsm_database
         )
 
         let collection_project = new Project(
             ['institution', 'project'],
-            'project',
             project_database
         )
 
         let collection_client = new Client(
             ['institution', 'client'],
-            'client',
             client_database,
             collection_mutualism
         )
 
         let collection_institution = new Institution(
             ['institution'],
-            'institution',
             institution_database,
             collection_client,
             collection_project
@@ -64,10 +60,10 @@ describe('Client Library Generation: Library Generation', function () {
 
     function gen_vue() {
         return {
-            institution: new Map<string, any>(),
-            client: new Map<string, any>(),
-            project: new Map<string, any>(),
-            mutualism: new Map<string, any>(),
+            institutions: new Map<string, any>(),
+            clients: new Map<string, any>(),
+            projects: new Map<string, any>(),
+            mutualisms: new Map<string, any>(),
         }
     }
 
@@ -99,9 +95,9 @@ describe('Client Library Generation: Library Generation', function () {
         await sleep(20);
 
         let test_against = gen_vue();
-        test_against.institution.set(institution._id, structuredClone(institution));
+        test_against.institutions.set(institution._id, structuredClone(institution));
 
-        assert.deepEqual(vue.institution.get(institution._id), institution)
+        assert.deepEqual(vue.institutions.get(institution._id), institution)
         assert.deepEqual(vue, test_against)
     });
 
@@ -121,11 +117,11 @@ describe('Client Library Generation: Library Generation', function () {
         await sleep(20);
 
         let test_against = gen_vue();
-        test_against.institution.set(institution_1._id, structuredClone(institution_1));
-        test_against.institution.set(institution_2._id, structuredClone(institution_2));
-        test_against.institution.set(institution_3._id, structuredClone(institution_3));
+        test_against.institutions.set(institution_1._id, structuredClone(institution_1));
+        test_against.institutions.set(institution_2._id, structuredClone(institution_2));
+        test_against.institutions.set(institution_3._id, structuredClone(institution_3));
 
-        assert.deepEqual(vue.institution.get(institution_3._id), institution_3)
+        assert.deepEqual(vue.institutions.get(institution_3._id), institution_3)
         assert.deepEqual(vue, test_against)
     });
 
@@ -144,9 +140,9 @@ describe('Client Library Generation: Library Generation', function () {
         await sleep(20);
 
         let test_against = gen_vue();
-        test_against.institution.set(institution._id, structuredClone(institution));
+        test_against.institutions.set(institution._id, structuredClone(institution));
 
-        assert.deepEqual(vue.institution.get(institution._id), institution)
+        assert.deepEqual(vue.institutions.get(institution._id), institution)
         assert.deepEqual(vue, test_against)
     });
 
@@ -168,11 +164,11 @@ describe('Client Library Generation: Library Generation', function () {
         await sleep(20);
 
         let test_against = gen_vue();
-        test_against.institution.set(institution_1._id, structuredClone(institution_1));
-        test_against.client.set(client_1._id, structuredClone(client_1));
+        test_against.institutions.set(institution_1._id, structuredClone(institution_1));
+        test_against.clients.set(client_1._id, structuredClone(client_1));
 
-        assert.deepEqual(vue.institution.get(institution_1._id), institution_1)
-        assert.deepEqual(vue.client.get(client_1._id), client_1)
+        assert.deepEqual(vue.institutions.get(institution_1._id), institution_1)
+        assert.deepEqual(vue.clients.get(client_1._id), client_1)
         assert.deepEqual(vue, test_against)
     });
 
@@ -195,11 +191,11 @@ describe('Client Library Generation: Library Generation', function () {
         await sleep(20);
 
         let test_against = gen_vue();
-        test_against.institution.set(institution_1._id, structuredClone(institution_1));
-        test_against.client.set(client_1._id, structuredClone(client_1));
+        test_against.institutions.set(institution_1._id, structuredClone(institution_1));
+        test_against.clients.set(client_1._id, structuredClone(client_1));
 
-        assert.deepEqual(vue.institution.get(institution_1._id), institution_1)
-        assert.deepEqual(vue.client.get(client_1._id), client_1)
+        assert.deepEqual(vue.institutions.get(institution_1._id), institution_1)
+        assert.deepEqual(vue.clients.get(client_1._id), client_1)
         assert.deepEqual(vue, test_against)
     });
 
@@ -231,17 +227,17 @@ describe('Client Library Generation: Library Generation', function () {
         await sleep(20);
 
         let test_against = gen_vue();
-        test_against.institution.set(institution_1._id, structuredClone(institution_1));
-        test_against.project.set(project_1._id, structuredClone(project_1));
-        test_against.project.set(project_2._id, structuredClone(project_2));
-        test_against.project.set(project_3._id, structuredClone(project_3));
-        test_against.project.set(project_4._id, structuredClone(project_4));
+        test_against.institutions.set(institution_1._id, structuredClone(institution_1));
+        test_against.projects.set(project_1._id, structuredClone(project_1));
+        test_against.projects.set(project_2._id, structuredClone(project_2));
+        test_against.projects.set(project_3._id, structuredClone(project_3));
+        test_against.projects.set(project_4._id, structuredClone(project_4));
 
-        assert.deepEqual(vue.institution.get(institution_1._id), institution_1)
-        assert.deepEqual(vue.project.get(project_1._id), project_1)
-        assert.deepEqual(vue.project.get(project_2._id), project_2)
-        assert.deepEqual(vue.project.get(project_3._id), project_3)
-        assert.deepEqual(vue.project.get(project_4._id), project_4)
+        assert.deepEqual(vue.institutions.get(institution_1._id), institution_1)
+        assert.deepEqual(vue.projects.get(project_1._id), project_1)
+        assert.deepEqual(vue.projects.get(project_2._id), project_2)
+        assert.deepEqual(vue.projects.get(project_3._id), project_3)
+        assert.deepEqual(vue.projects.get(project_4._id), project_4)
         assert.deepEqual(vue, test_against)
         
         // make sure that extra queries aren't happening
@@ -274,13 +270,13 @@ describe('Client Library Generation: Library Generation', function () {
         await sleep(20);
 
         let test_against = gen_vue();
-        test_against.institution.set(institution_1._id, structuredClone(institution_1));
-        test_against.institution.set(institution_2._id, structuredClone(institution_2));
-        test_against.institution.set(institution_3._id, structuredClone(institution_3));
-        test_against.client.set(client_1._id, structuredClone(client_1));
+        test_against.institutions.set(institution_1._id, structuredClone(institution_1));
+        test_against.institutions.set(institution_2._id, structuredClone(institution_2));
+        test_against.institutions.set(institution_3._id, structuredClone(institution_3));
+        test_against.clients.set(client_1._id, structuredClone(client_1));
 
-        assert.deepEqual(vue.client.get(client_1._id), client_1)
-        assert.deepEqual(vue.institution.get(institution_3._id), institution_3)
+        assert.deepEqual(vue.clients.get(client_1._id), client_1)
+        assert.deepEqual(vue.institutions.get(institution_3._id), institution_3)
         assert.deepEqual(vue, test_against)
 
         assert.equal(api.collection('institution')?.document('*').collection('client').meta_counter.get(client_1._id), 1)
@@ -313,14 +309,14 @@ describe('Client Library Generation: Library Generation', function () {
         await sleep(20);
 
         let test_against = gen_vue();
-        test_against.institution.set(institution_1._id, structuredClone(institution_1));
-        test_against.client.set(client_1._id, structuredClone(client_1));
-        test_against.client.set(client_2._id, structuredClone(client_2));
-        test_against.client.set(client_3._id, structuredClone(client_3));
+        test_against.institutions.set(institution_1._id, structuredClone(institution_1));
+        test_against.clients.set(client_1._id, structuredClone(client_1));
+        test_against.clients.set(client_2._id, structuredClone(client_2));
+        test_against.clients.set(client_3._id, structuredClone(client_3));
 
-        assert.deepEqual(vue.client.get(client_1._id), client_1)
-        assert.deepEqual(vue.client.get(client_2._id), client_2)
-        assert.deepEqual(vue.client.get(client_3._id), client_3)
+        assert.deepEqual(vue.clients.get(client_1._id), client_1)
+        assert.deepEqual(vue.clients.get(client_2._id), client_2)
+        assert.deepEqual(vue.clients.get(client_3._id), client_3)
         assert.deepEqual(vue, test_against)
 
         assert.equal(api.collection('institution')?.meta_counter.get(institution_1._id), 1)
@@ -350,11 +346,11 @@ describe('Client Library Generation: Library Generation', function () {
         await sleep(20);
 
         let test_against_phase_1 = gen_vue();
-        test_against_phase_1.institution.set(institution_1._id, structuredClone(institution_1));
-        test_against_phase_1.client.set(client_1._id, structuredClone(client_1));
+        test_against_phase_1.institutions.set(institution_1._id, structuredClone(institution_1));
+        test_against_phase_1.clients.set(client_1._id, structuredClone(client_1));
 
-        assert.deepEqual(vue.client.get(client_1._id), client_1)
-        assert.deepEqual(vue.institution.get(institution_1._id), institution_1)
+        assert.deepEqual(vue.clients.get(client_1._id), client_1)
+        assert.deepEqual(vue.institutions.get(institution_1._id), institution_1)
         assert.deepEqual(vue, test_against_phase_1)
 
         client_1.institution_id = institution_2._id;
@@ -362,11 +358,11 @@ describe('Client Library Generation: Library Generation', function () {
         await sleep(20);
 
         let test_against_phase_2 = gen_vue();
-        test_against_phase_2.institution.set(institution_2._id, structuredClone(institution_2));
-        test_against_phase_2.client.set(client_1._id, structuredClone(client_1));
+        test_against_phase_2.institutions.set(institution_2._id, structuredClone(institution_2));
+        test_against_phase_2.clients.set(client_1._id, structuredClone(client_1));
 
-        assert.deepEqual(vue.client.get(client_1._id), client_1);
-        assert.deepEqual(vue.institution.get(institution_2._id), institution_2);
+        assert.deepEqual(vue.clients.get(client_1._id), client_1);
+        assert.deepEqual(vue.institutions.get(institution_2._id), institution_2);
         assert.deepEqual(vue, test_against_phase_2);
     });
 
@@ -391,22 +387,22 @@ describe('Client Library Generation: Library Generation', function () {
         await sleep(20);
 
         let test_against_phase_1 = gen_vue();
-        test_against_phase_1.institution.set(institution_1._id, structuredClone(institution_1));
-        test_against_phase_1.client.set(client_1._id, structuredClone(client_1));
+        test_against_phase_1.institutions.set(institution_1._id, structuredClone(institution_1));
+        test_against_phase_1.clients.set(client_1._id, structuredClone(client_1));
 
-        assert.deepEqual(vue.client.get(client_1._id), client_1)
-        assert.deepEqual(vue.institution.get(institution_1._id), institution_1)
+        assert.deepEqual(vue.clients.get(client_1._id), client_1)
+        assert.deepEqual(vue.institutions.get(institution_1._id), institution_1)
         assert.deepEqual(vue, test_against_phase_1)
 
         vitamins.update_document_from_external(client_1._id, Object.assign(client_1, {institution_id: institution_2._id}))
         await sleep(20);
 
         let test_against_phase_2 = gen_vue();
-        test_against_phase_2.institution.set(institution_2._id, structuredClone(institution_2));
-        test_against_phase_2.client.set(client_1._id, structuredClone(client_1));
+        test_against_phase_2.institutions.set(institution_2._id, structuredClone(institution_2));
+        test_against_phase_2.clients.set(client_1._id, structuredClone(client_1));
 
-        assert.deepEqual(vue.client.get(client_1._id), client_1);
-        assert.deepEqual(vue.institution.get(institution_2._id), institution_2);
+        assert.deepEqual(vue.clients.get(client_1._id), client_1);
+        assert.deepEqual(vue.institutions.get(institution_2._id), institution_2);
         assert.deepEqual(vue, test_against_phase_2);
     });
 
@@ -432,9 +428,9 @@ describe('Client Library Generation: Library Generation', function () {
         await sleep(20);
 
         let test_against_phase_1 = gen_vue();
-        test_against_phase_1.institution.set(institution_1._id, structuredClone(institution_1));
-        test_against_phase_1.client.set(client_1._id, structuredClone(client_1));
-        test_against_phase_1.project.set(project_1._id, structuredClone(project_1));
+        test_against_phase_1.institutions.set(institution_1._id, structuredClone(institution_1));
+        test_against_phase_1.clients.set(client_1._id, structuredClone(client_1));
+        test_against_phase_1.projects.set(project_1._id, structuredClone(project_1));
 
         assert.deepEqual(vue, test_against_phase_1)
 
@@ -442,7 +438,7 @@ describe('Client Library Generation: Library Generation', function () {
         await sleep(20);
 
         let test_against_phase_2 = gen_vue();
-        test_against_phase_2.institution.set(institution_1._id, structuredClone(institution_1));
+        test_against_phase_2.institutions.set(institution_1._id, structuredClone(institution_1));
 
         assert.deepEqual(vue, test_against_phase_2)
     });
@@ -533,4 +529,7 @@ describe('Client Library Generation: Library Generation', function () {
             ).run();
         }, 'Error: arbitrary error');
     });
+
+    // TODO: vue needs the ability to have a different name for the collection.
+    // for example, the collection ID may be "user", but on vue it needs to be "users".
 });

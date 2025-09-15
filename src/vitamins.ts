@@ -336,17 +336,17 @@ export class Vitamins {
         let cloned_data = structuredClone(data);
 
         //@ts-expect-error
-        if(!this.vue[document.reference.collection_id]){
-            throw new Error(`when updating ${document.reference.collection_id}, found that the vue app does not have a ${document.reference.collection_id} key`);
+        if(!this.vue[document.reference.collection_name_plural]){
+            throw new Error(`when updating ${document.reference.collection_name_plural}, found that the vue app does not have a ${document.reference.collection_name_plural} key`);
         }
 
         //@ts-expect-error
-        if(!(this.vue[document.reference.collection_id] instanceof Map)){
-            throw new Error(`when updating ${document.reference.collection_id}, found that the vue app key ${document.reference.collection_id} is not a map. It should be a Map<string, ${document.reference.collection_id}>`);
+        if(!(this.vue[document.reference.collection_name_plural] instanceof Map)){
+            throw new Error(`when updating ${document.reference.collection_name_plural}, found that the vue app key ${document.reference.collection_name_plural} is not a map. It should be a Map<string, ${document.reference.collection_name_plural}>`);
         }
 
         //@ts-expect-error
-        (this.vue[document.reference.collection_id] as Map).set(document_id, cloned_data);
+        (this.vue[document.reference.collection_name_plural] as Map).set(document_id, cloned_data);
     }
 
     _generate_child_queries(document: Document): Query[] {
@@ -408,16 +408,16 @@ export class Vitamins {
 
                 this.documents.delete(document.id);
                 //@ts-expect-error
-                if(!this.vue[document.reference.collection_id]){
-                    throw new Error(`when updating ${document.reference.collection_id}, found that the vue app does not have a ${document.reference.collection_id} key`)
+                if(!this.vue[document.reference.collection_name_plural]){
+                    throw new Error(`when updating ${document.reference.collection_name_plural}, found that the vue app does not have a ${document.reference.collection_name_plural} key`)
                 };
 
                 //@ts-expect-error
-                if(!this.vue[document.reference.collection_id] instanceof Map){
-                    throw new Error(`when updating ${document.reference.collection_id}, found that the vue app key ${document.reference.collection_id} is not a map. It should be a Map<string, ${document.reference.collection_id}>`)
+                if(!this.vue[document.reference.collection_name_plural] instanceof Map){
+                    throw new Error(`when updating ${document.reference.collection_name_plural}, found that the vue app key ${document.reference.collection_name_plural} is not a map. It should be a Map<string, ${document.reference.collection_name_plural}>`)
                 };
                 //@ts-expect-error
-                this.vue[document.reference.collection_id].delete(document.id);
+                this.vue[document.reference.collection_name_plural].delete(document.id);
             }
         }
     }

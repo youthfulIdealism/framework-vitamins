@@ -292,13 +292,13 @@ export class Vitamins {
         }
         this._cleanup(test_queries_for_deletion, []);
         let cloned_data = structuredClone(data);
-        if (!this.vue[document.reference.collection_id]) {
-            throw new Error(`when updating ${document.reference.collection_id}, found that the vue app does not have a ${document.reference.collection_id} key`);
+        if (!this.vue[document.reference.collection_name_plural]) {
+            throw new Error(`when updating ${document.reference.collection_name_plural}, found that the vue app does not have a ${document.reference.collection_name_plural} key`);
         }
-        if (!(this.vue[document.reference.collection_id] instanceof Map)) {
-            throw new Error(`when updating ${document.reference.collection_id}, found that the vue app key ${document.reference.collection_id} is not a map. It should be a Map<string, ${document.reference.collection_id}>`);
+        if (!(this.vue[document.reference.collection_name_plural] instanceof Map)) {
+            throw new Error(`when updating ${document.reference.collection_name_plural}, found that the vue app key ${document.reference.collection_name_plural} is not a map. It should be a Map<string, ${document.reference.collection_name_plural}>`);
         }
-        this.vue[document.reference.collection_id].set(document_id, cloned_data);
+        this.vue[document.reference.collection_name_plural].set(document_id, cloned_data);
     }
     _generate_child_queries(document) {
         let all_generated_child_queries = [];
@@ -344,15 +344,15 @@ export class Vitamins {
                     child.unlink_parent(document.id);
                 }
                 this.documents.delete(document.id);
-                if (!this.vue[document.reference.collection_id]) {
-                    throw new Error(`when updating ${document.reference.collection_id}, found that the vue app does not have a ${document.reference.collection_id} key`);
+                if (!this.vue[document.reference.collection_name_plural]) {
+                    throw new Error(`when updating ${document.reference.collection_name_plural}, found that the vue app does not have a ${document.reference.collection_name_plural} key`);
                 }
                 ;
-                if (!this.vue[document.reference.collection_id] instanceof Map) {
-                    throw new Error(`when updating ${document.reference.collection_id}, found that the vue app key ${document.reference.collection_id} is not a map. It should be a Map<string, ${document.reference.collection_id}>`);
+                if (!this.vue[document.reference.collection_name_plural] instanceof Map) {
+                    throw new Error(`when updating ${document.reference.collection_name_plural}, found that the vue app key ${document.reference.collection_name_plural} is not a map. It should be a Map<string, ${document.reference.collection_name_plural}>`);
                 }
                 ;
-                this.vue[document.reference.collection_id].delete(document.id);
+                this.vue[document.reference.collection_name_plural].delete(document.id);
             }
         }
     }

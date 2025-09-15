@@ -96,6 +96,7 @@ export function gen_mutualism(institution: result, clients: result[], name: stri
 export class Institution {
     path: string[]
     collection_id: string;
+    collection_name_plural: string
     database: Map<string, any>
     meta_counter: Map<string, any>
     errors: boolean
@@ -104,9 +105,10 @@ export class Institution {
     client: Client
     
 
-    constructor(path: string[], collection_id: string, project_database: Map<string, any>, client: Client, project: Project) {
+    constructor(path: string[], project_database: Map<string, any>, client: Client, project: Project) {
         this.path = path;
-        this.collection_id = collection_id;
+        this.collection_id = 'institution';
+        this.collection_name_plural = 'institutions'
         this.database = project_database;
         this.meta_counter = new Map();
         this.project = project;
@@ -124,6 +126,7 @@ export class Institution {
         return {
             path: [...self.path, document_id],
             collection_id: self.collection_id,
+            collection_name_plural: self.collection_name_plural,
             document_id: document_id,
             async get(): Promise<institution_result>{
                 if(self.errors){ throw new Error('arbitrary error')};
@@ -144,15 +147,17 @@ export class Institution {
 export class Client {
     path: string[]
     collection_id: string;
+    collection_name_plural: string;
     database: Map<string, any>
     meta_counter: Map<string, any>
     errors: boolean
 
     mutualism: Mutualism
 
-    constructor(path: string[], collection_id: string, client_database: Map<string, any>, mutualism: Mutualism) {
+    constructor(path: string[], client_database: Map<string, any>, mutualism: Mutualism) {
         this.path = path;
-        this.collection_id = collection_id;
+        this.collection_id = 'client';
+        this.collection_name_plural = 'clients';
         this.database = client_database;
         this.meta_counter = new Map();
         this.mutualism = mutualism;
@@ -169,6 +174,7 @@ export class Client {
         return {
             path: [...self.path, document_id],
             collection_id: self.collection_id,
+            collection_name_plural: self.collection_name_plural,
             document_id: document_id,
             async get(): Promise<client_result> {
                 if(self.errors){ throw new Error('arbitrary error')};
@@ -187,13 +193,15 @@ export class Client {
 export class Project {
     path: string[]
     collection_id: string;
+    collection_name_plural: string
     database: Map<string, any>
     meta_counter: Map<string, any>
     errors: boolean
 
-    constructor(path: string[], collection_id: string, project_database: Map<string, any>) {
+    constructor(path: string[], project_database: Map<string, any>) {
         this.path = path;
-        this.collection_id = collection_id;
+        this.collection_id = 'project';
+        this.collection_name_plural = 'projects'
         this.database = project_database;
         this.meta_counter = new Map();
         this.errors = false;
@@ -209,6 +217,7 @@ export class Project {
         return {
             path: [...self.path, document_id],
             collection_id: self.collection_id,
+            collection_name_plural: self.collection_name_plural,
             document_id: document_id,
             async get(): Promise<project_result> {
                 if(self.errors){ throw new Error('arbitrary error')};
@@ -222,13 +231,15 @@ export class Project {
 export class Mutualism {
     path: string[]
     collection_id: string;
+    collection_name_plural: string
     database: Map<string, any>
     meta_counter: Map<string, any>
     errors: boolean
 
-    constructor(path: string[], collection_id: string, mutualism_database: Map<string, any>) {
+    constructor(path: string[], mutualism_database: Map<string, any>) {
         this.path = path;
-        this.collection_id = collection_id;
+        this.collection_id = 'mutualism';
+        this.collection_name_plural = 'mutualisms'
         this.database = mutualism_database;
         this.meta_counter = new Map();
         this.errors = false;
@@ -244,6 +255,7 @@ export class Mutualism {
         return {
             path: [...self.path, document_id],
             collection_id: self.collection_id,
+            collection_name_plural: self.collection_name_plural,
             document_id: document_id,
             async get(): Promise<mutualism_result> {
                 if(self.errors){ throw new Error('arbitrary error')};
