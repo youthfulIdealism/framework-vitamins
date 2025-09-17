@@ -1,7 +1,7 @@
 import { App } from 'vue';
 import { generated_collection_interface, generated_document_interface, Infer_Collection_Returntype, result } from './type_generated_collection.js';
 type query_operation = "get" | "query";
-type child_generator<T extends result> = (result: T) => Query;
+type child_generator<T extends result> = (result: T) => Query | undefined;
 declare class Document {
     id: string;
     vitamins: Vitamins;

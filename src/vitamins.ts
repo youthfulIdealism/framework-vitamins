@@ -3,7 +3,7 @@ import { App } from 'vue'
 import { generated_collection_interface, generated_document_interface, Infer_Collection_Returntype, result } from './type_generated_collection.js'
 
 type query_operation = "get" | "query";
-type child_generator<T extends result> = (result: T) => Query;
+type child_generator<T extends result> = (result: T) => Query | undefined;
 
 
 
@@ -374,7 +374,7 @@ export class Vitamins {
         for(let query_parent_id of document.parents) {
             let query_parent = this.all_queries.get(query_parent_id);
 
-            let generated_child_queries = query_parent.child_generators.map(generator => generator(document.document));
+            let generated_child_queries = query_parent.child_generators.map(generator => generator(document.document)).filter(ele => ele);
             for(let q = 0; q < generated_child_queries.length; q++){
                 // if we already had the child query, use the existing one instead of the new one
                 let generated_child_query = generated_child_queries[q];
