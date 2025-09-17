@@ -311,7 +311,7 @@ export class Vitamins {
         let all_generated_child_queries = [];
         for (let query_parent_id of document.parents) {
             let query_parent = this.all_queries.get(query_parent_id);
-            let generated_child_queries = query_parent.child_generators.map(generator => generator(document.document)).filter(ele => ele);
+            let generated_child_queries = (query_parent.child_generators ?? []).map(generator => generator(document.document)).filter(ele => ele);
             for (let q = 0; q < generated_child_queries.length; q++) {
                 let generated_child_query = generated_child_queries[q];
                 let query = this._find_existing_query(generated_child_query) ?? generated_child_query;
