@@ -59,10 +59,10 @@ class Query {
         await this._fetch();
     }
     async run(run_from_root = true) {
-        this.vitamins._debug(`running ${this.reference.collection_id}`);
+        this.vitamins._debug(`running ${this.reference.collection_id} ${this.id}`);
         let self = this.vitamins._find_existing_query(this) ?? this;
         if (self.id !== this.id) {
-            this.vitamins._debug('replacing self with doppleganger');
+            this.vitamins._debug(`replacing self ${this.id} with doppleganger ${self.id}`);
         }
         if (run_from_root && !self.parents.has('root')) {
             self.parents.add('root');
@@ -244,7 +244,7 @@ export class Vitamins {
     }
     _debug(...print) {
         if (this.debug_on) {
-            console.log(print);
+            console.log(...print);
         }
     }
     _find_existing_query(query) {
@@ -289,7 +289,6 @@ export class Vitamins {
         }
         let generated_child_queries = this._generate_child_queries(document);
         generated_child_queries.forEach(ele => this._add_query(ele));
-        generated_child_queries.forEach(ele => this._debug(quickprint(ele)));
         generated_child_queries.forEach(ele => ele.run(false));
         let test_queries_for_deletion = document_previous_children.map(query_id => this.all_queries.get(query_id));
         let bugfind = Array.from(document_previous_children).filter(id => !this.all_queries.has(id));

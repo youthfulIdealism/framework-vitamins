@@ -76,11 +76,11 @@ class Query {
     }
 
     async run(run_from_root: boolean = true): Promise<Query> {
-        this.vitamins._debug(`running ${this.reference.collection_id}`)
+        this.vitamins._debug(`running ${this.reference.collection_id} ${this.id}`)
        
         // automatically replace yourself with an existing query if appliccable
         let self = this.vitamins._find_existing_query(this) ?? this;
-        if(self.id !== this.id) { this.vitamins._debug('replacing self with doppleganger')}
+        if(self.id !== this.id) { this.vitamins._debug(`replacing self ${this.id} with doppleganger ${self.id}`)}
 
         if(run_from_root && !self.parents.has('root')){
             self.parents.add('root');
@@ -229,6 +229,8 @@ export class Vitamins {
         
         // if the created query already exists within the system, set up to return the existing query instead
         let generated_query = new Query(this, collection, undefined, generators);
+        //let replacement_query = this._find_existing_query(generated_query) ?? generated_query;
+        //if(generated_query.id !== replacement_query.id) { this._debug(`replacing generated query ${generated_query.id} with existing doppleganger ${replacement_query.id}`)}
 
         //return query;
         return generated_query;
@@ -240,6 +242,8 @@ export class Vitamins {
         
         // if the created query already exists within the system, set up to return the existing query instead
         let generated_query = new Query(this, collection, query_parameters ?? {}, generators);
+        //let replacement_query = this._find_existing_query(generated_query) ?? generated_query;
+        //if(generated_query.id !== replacement_query.id) { this._debug(`replacing generated query ${generated_query.id} with existing doppleganger ${replacement_query.id}`)}
 
         //return query;
         return generated_query;
@@ -262,7 +266,7 @@ export class Vitamins {
     }
 
     _debug(...print: any[]) {
-        if(this.debug_on){ console.log(print); }
+        if(this.debug_on){ console.log(...print); }
     }
 
     _find_existing_query(query: Query) {
@@ -328,7 +332,7 @@ export class Vitamins {
         // let generated_child_queries = this._generate_child_queries(parent_query);
         let generated_child_queries = this._generate_child_queries(document);
         generated_child_queries.forEach(ele => this._add_query(ele));
-        generated_child_queries.forEach(ele => this._debug(quickprint(ele)))
+        //generated_child_queries.forEach(ele => this._debug(quickprint(ele)))
 
         generated_child_queries.forEach(ele => ele.run(false));
         

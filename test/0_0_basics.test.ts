@@ -296,6 +296,7 @@ describe('Client Library Generation: Library Generation', function () {
 
         //@ts-expect-error
         let vitamins = new Vitamins(vue);
+        
         //@ts-expect-error
         vitamins.query(api.collection('institution')?.document(institution_1._id) as Collection, undefined,
             (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {_id: client_1._id}),
