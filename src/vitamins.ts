@@ -54,14 +54,14 @@ class Query {
         this.vitamins = vitamins;
         this.reference = reference;
         this.child_generators = child_generators;
+        this.collection_path = this.reference.path.join('/')
+
         // if the reference has a query method, then it's a collection reference and we should do query operations on it
         if((reference as generated_collection_interface<result>).query) {
             this.query_parameters = argument as any;
-            this.collection_path = this.reference.path.join('/')
             this.operation = 'query';
         } else if((reference as generated_document_interface<result>).get) {// if the reference has a get method, then it's a document reference and we should do get operations on it
             this.document_id = (reference as generated_document_interface<result>).document_id;
-            this.collection_path = [...this.reference.path, this.document_id].join('/')
             this.operation = 'get';
         } else {
             throw new Error(`reference is not a collection reference or a query reference. Reexamine that argument.`)
@@ -383,7 +383,10 @@ export class Vitamins {
                 // if we already had the child query, use the existing one instead of the new one
                 let generated_child_query = generated_child_queries[q];
                 let query = this._find_existing_query(generated_child_query) ?? generated_child_query;
-                if(generated_child_query.id !== query.id ){ generated_child_queries[q] = query; }
+                if(generated_child_query.id !== query.id ){
+                    generated_child_queries[q] = query;
+                    generated_child_query = query;
+                }
                 //this._add_query(generated_child_query);
                 generated_child_query.link_parent(document);
             }

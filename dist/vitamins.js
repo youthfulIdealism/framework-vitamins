@@ -38,14 +38,13 @@ class Query {
         this.vitamins = vitamins;
         this.reference = reference;
         this.child_generators = child_generators;
+        this.collection_path = this.reference.path.join('/');
         if (reference.query) {
             this.query_parameters = argument;
-            this.collection_path = this.reference.path.join('/');
             this.operation = 'query';
         }
         else if (reference.get) {
             this.document_id = reference.document_id;
-            this.collection_path = [...this.reference.path, this.document_id].join('/');
             this.operation = 'get';
         }
         else {
@@ -316,6 +315,7 @@ export class Vitamins {
                 let query = this._find_existing_query(generated_child_query) ?? generated_child_query;
                 if (generated_child_query.id !== query.id) {
                     generated_child_queries[q] = query;
+                    generated_child_query = query;
                 }
                 generated_child_query.link_parent(document);
             }
