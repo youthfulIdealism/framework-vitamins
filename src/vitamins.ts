@@ -1,5 +1,5 @@
 import { v4 as uuid } from 'uuid'
-import { App } from 'vue'
+import { App, Ref } from 'vue'
 import { generated_collection_interface, generated_document_interface, Infer_Collection_Returntype, result } from './type_generated_collection.js'
 
 type query_operation = "get" | "query";
@@ -209,13 +209,13 @@ function quickprint(query: Query){
 }
 
 export class Vitamins {
-    vue: App
+    vue: App | any;
     documents: Map<string, Document> // document id -> document
     all_queries: Map<string, Query>
     queries_by_collection: Map<string, Set<Query>>// collection id -> document[]
     debug_on: boolean; 
 
-    constructor(vue: App) {
+    constructor(vue: App | any) {
         this.vue = vue;
         this.documents = new Map();
         this.queries_by_collection = new Map();
@@ -223,7 +223,7 @@ export class Vitamins {
         this.debug_on = false;
     }
 
-    document<Collection extends generated_collection_interface<result>>(collection: Collection, ...generators: child_generator<Infer_Collection_Returntype<Collection>>[]): Query {
+    document<Document extends generated_document_interface<result>>(collection: Document, ...generators: child_generator<Infer_Collection_Returntype<Document>>[]): Query {
         // if queries_by_collection does not yet have a key for the relevant collection, create one. 
         if(!this.queries_by_collection.has(collection.collection_id)){ this.queries_by_collection.set(collection.collection_id, new Set()); }
         
@@ -350,12 +350,10 @@ export class Vitamins {
         */
         let cloned_data = structuredClone(data);
 
-        //@ts-expect-error
         if(!this.vue[document.reference.collection_name_plural]){
             throw new Error(`when updating ${document.reference.collection_name_plural}, found that the vue app does not have a ${document.reference.collection_name_plural} key`);
         }
 
-        //@ts-expect-error
         if(!(this.vue[document.reference.collection_name_plural] instanceof Map)){
             throw new Error(`when updating ${document.reference.collection_name_plural}, found that the vue app key ${document.reference.collection_name_plural} is not a map. It should be a Map<string, ${document.reference.collection_name_plural}>`);
         }
@@ -425,7 +423,6 @@ export class Vitamins {
                 }
 
                 this.documents.delete(document.id);
-                //@ts-expect-error
                 if(!this.vue[document.reference.collection_name_plural]){
                     throw new Error(`when updating ${document.reference.collection_name_plural}, found that the vue app does not have a ${document.reference.collection_name_plural} key`)
                 };
@@ -434,7 +431,6 @@ export class Vitamins {
                 if(!this.vue[document.reference.collection_name_plural] instanceof Map){
                     throw new Error(`when updating ${document.reference.collection_name_plural}, found that the vue app key ${document.reference.collection_name_plural} is not a map. It should be a Map<string, ${document.reference.collection_name_plural}>`)
                 };
-                //@ts-expect-error
                 this.vue[document.reference.collection_name_plural].delete(document.id);
             }
         }
