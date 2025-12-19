@@ -36,13 +36,13 @@ declare class Query {
     static find_query(queries: Query[], target: Query): Query;
 }
 export declare class Vitamins {
-    vue: App;
+    vue: App | any;
     documents: Map<string, Document>;
     all_queries: Map<string, Query>;
     queries_by_collection: Map<string, Set<Query>>;
     debug_on: boolean;
-    constructor(vue: App);
-    document<Collection extends generated_collection_interface<result>>(collection: Collection, ...generators: child_generator<Infer_Collection_Returntype<Collection>>[]): Query;
+    constructor(vue: App | any);
+    document<Document extends generated_document_interface<result>>(collection: Document, ...generators: child_generator<Infer_Collection_Returntype<Document>>[]): Query;
     query<Collection extends generated_collection_interface<result>>(collection: Collection, query_parameters: any, ...generators: child_generator<Infer_Collection_Returntype<Collection>>[]): Query;
     delete_document_from_external(document_id: string): void;
     update_document_from_external(document_id: string, data: result): void;
