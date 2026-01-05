@@ -91,19 +91,18 @@ class Query {
         // if we already had that query,....
         if(self.id !== this.id){
             // if any generators were specified, look for new ones and add them.
-            for(let generator of this.child_generators) {
-                if(!self.child_generators.includes(generator)){
-                    this.vitamins._debug(`ADDING CHILD GENERATOR`)
-                    this.vitamins._debug(generator)
-                    self.child_generators.push(generator);
-                }
+            let new_child_generators = this.child_generators.filter(ele => !self.child_generators.includes(ele))
+            for(let generator of new_child_generators) {
+                self.vitamins._debug(`ADDING CHILD GENERATOR`)
+                self.vitamins._debug(generator)
+                self.child_generators.push(generator);
             }
 
             // generate the child queries for the new generators, since that wouldn't otherwise happen.
-            for(let child_id of this.children) {
-                let document = this.vitamins.documents.get(child_id);
-                let generated_child_queries = this.vitamins._generate_child_queries(document);
-                generated_child_queries.forEach(ele => this.vitamins._add_query(ele));
+            for(let child_id of self.children) {
+                let document = self.vitamins.documents.get(child_id);
+                let generated_child_queries = self.vitamins._generate_child_queries(document);
+                generated_child_queries.forEach(ele => self.vitamins._add_query(ele));
                 generated_child_queries.forEach(ele => ele.run());
             }
         } else {

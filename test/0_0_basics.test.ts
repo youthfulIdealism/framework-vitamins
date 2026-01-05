@@ -274,6 +274,7 @@ describe('Client Library Generation: Library Generation', function () {
         assert.equal(api.collection('institution')?.document('*').collection('client').meta_counter.get(client_1._id), 1)
     });
 
+    // TODO: I need to do the same test, but at the document level
     it(`when two identical queries with different children are generated, the query should run only once and both children should run correctly`, async function () {
         let institution_1 = gen_institution('test institution 1')
         let client_1 = gen_client(institution_1, 'test client 1')
@@ -293,6 +294,8 @@ describe('Client Library Generation: Library Generation', function () {
             (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {_id: client_1._id}),
             (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {_id: client_2._id}),
         ).run()
+        await sleep(20);
+
         //@ts-expect-error
         vitamins.query(api.collection('institution')?.document(institution_1._id) as Collection, undefined,
             (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {_id: client_2._id}),

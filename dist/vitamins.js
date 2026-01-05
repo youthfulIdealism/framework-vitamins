@@ -68,17 +68,16 @@ class Query {
         }
         self.vitamins._add_query(self);
         if (self.id !== this.id) {
-            for (let generator of this.child_generators) {
-                if (!self.child_generators.includes(generator)) {
-                    this.vitamins._debug(`ADDING CHILD GENERATOR`);
-                    this.vitamins._debug(generator);
-                    self.child_generators.push(generator);
-                }
+            let new_child_generators = this.child_generators.filter(ele => !self.child_generators.includes(ele));
+            for (let generator of new_child_generators) {
+                self.vitamins._debug(`ADDING CHILD GENERATOR`);
+                self.vitamins._debug(generator);
+                self.child_generators.push(generator);
             }
-            for (let child_id of this.children) {
-                let document = this.vitamins.documents.get(child_id);
-                let generated_child_queries = this.vitamins._generate_child_queries(document);
-                generated_child_queries.forEach(ele => this.vitamins._add_query(ele));
+            for (let child_id of self.children) {
+                let document = self.vitamins.documents.get(child_id);
+                let generated_child_queries = self.vitamins._generate_child_queries(document);
+                generated_child_queries.forEach(ele => self.vitamins._add_query(ele));
                 generated_child_queries.forEach(ele => ele.run());
             }
         }
