@@ -180,7 +180,7 @@ export class Client {
                 if(self.errors){ throw new Error('arbitrary error')};
                 return await get(document_id, self.database, self.meta_counter)
             },
-            collection(collection_id: 'mutualism') {
+            collection(collection_id: 'mutualism'): Mutualism {
                 switch(collection_id){
                     case 'mutualism':
                         return self.mutualism;

@@ -313,7 +313,6 @@ export class Vitamins {
 
         // make the query a parent of the document. Query's parent_of method already checks to make sure it's
         // not already a parent, so you don't need to do that again here.
-        // TODO: unlink documents!
         if(query){
             query.link_child(document);
         }
@@ -328,7 +327,6 @@ export class Vitamins {
         }
 
         // get the full set of parent queries so that we can re-generate any child queries.
-        // let generated_child_queries = this._generate_child_queries(parent_query);
         let generated_child_queries = this._generate_child_queries(document);
         generated_child_queries.forEach(ele => this._add_query(ele));
         //generated_child_queries.forEach(ele => this._debug(quickprint(ele)))
@@ -379,11 +377,14 @@ export class Vitamins {
             for(let q = 0; q < generated_child_queries.length; q++){
                 // if we already had the child query, use the existing one instead of the new one
                 let generated_child_query = generated_child_queries[q];
-                let query = this._find_existing_query(generated_child_query) ?? generated_child_query;
+                // This was a nice idea, but it doesn't work, because comparing queries
+                // doesn't discover if they have equivalent *child* queries. the game here
+                // has to be to let the deduper in .run() do the work.
+                /*let query = this._find_existing_query(generated_child_query) ?? generated_child_query;
                 if(generated_child_query.id !== query.id ){
                     generated_child_queries[q] = query;
                     generated_child_query = query;
-                }
+                }*/
                 //this._add_query(generated_child_query);
                 generated_child_query.link_parent(document);
             }

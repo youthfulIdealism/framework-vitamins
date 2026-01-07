@@ -5,7 +5,7 @@ import { Vitamins } from '../dist/vitamins'
 
 import { Client, Institution, Mutualism, Project, gen_institution, gen_client, gen_project, gen_mutualism } from './utils/testing_harness.js'
 
-describe('Client Library Generation: Library Generation', function () { 
+describe('Vitamins Basics', function () { 
     
     function get_setup(
         institution_database: Map<string, any> = new Map<string, any>(),
@@ -274,7 +274,6 @@ describe('Client Library Generation: Library Generation', function () {
         assert.equal(api.collection('institution')?.document('*').collection('client').meta_counter.get(client_1._id), 1)
     });
 
-    // TODO: I need to do the same test, but at the document level
     it(`when two identical queries with different children are generated, the query should run only once and both children should run correctly`, async function () {
         let institution_1 = gen_institution('test institution 1')
         let client_1 = gen_client(institution_1, 'test client 1')
@@ -517,7 +516,4 @@ describe('Client Library Generation: Library Generation', function () {
             ).run();
         }, 'Error: arbitrary error');
     });
-
-    // TODO: vue needs the ability to have a different name for the collection.
-    // for example, the collection ID may be "user", but on vue it needs to be "users".
 });
