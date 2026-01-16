@@ -224,6 +224,20 @@ export class Vitamins {
         let generated_query = new Query(this, collection, query_parameters ?? {}, generators);
         return generated_query;
     }
+    add_document_from_external(collection, data) {
+        if (!this.queries_by_collection.has(collection.collection_id)) {
+            this.queries_by_collection.set(collection.collection_id, new Set());
+        }
+        let generated_query = new Query(this, collection, undefined);
+        this._debug(`adding document from external ${generated_query.reference.collection_id} ${generated_query.id}`);
+        let self = this._find_existing_query(generated_query) ?? generated_query;
+        if (self.id !== generated_query.id) {
+            this._debug(`replacing self with doppleganger ${self.id}`);
+        }
+        self.has_run = true;
+        this._add_query(self);
+        this._update_data(self.reference, data._id, data, self);
+    }
     delete_document_from_external(document_id) {
         let document = this.documents.get(document_id);
         if (!document) {

@@ -2,6 +2,7 @@ import { v4 as uuid } from 'uuid'
 import { App, Ref } from 'vue'
 import { generated_collection_interface, generated_document_interface, Infer_Collection_Returntype, result } from './type_generated_collection.js'
 
+
 type query_operation = "get" | "query";
 type child_generator<T extends result> = (result: T) => Query | undefined;
 
@@ -238,14 +239,22 @@ export class Vitamins {
     query<Collection extends generated_collection_interface<result>>(collection: Collection, query_parameters: any, ...generators: child_generator<Infer_Collection_Returntype<Collection>>[]): Query {
         // if queries_by_collection does not yet have a key for the relevant collection, create one. 
         if(!this.queries_by_collection.has(collection.collection_id)){ this.queries_by_collection.set(collection.collection_id, new Set()); }
-        
-        // if the created query already exists within the system, set up to return the existing query instead
         let generated_query = new Query(this, collection, query_parameters ?? {}, generators);
-        //let replacement_query = this._find_existing_query(generated_query) ?? generated_query;
-        //if(generated_query.id !== replacement_query.id) { this._debug(`replacing generated query ${generated_query.id} with existing doppleganger ${replacement_query.id}`)}
-
-        //return query;
         return generated_query;
+    }
+
+    add_document_from_external<Document extends generated_document_interface<result>>(collection: Document, data: result) {
+        if(!this.queries_by_collection.has(collection.collection_id)){ this.queries_by_collection.set(collection.collection_id, new Set()); }
+        let generated_query = new Query(this, collection, undefined);
+
+        this._debug(`adding document from external ${generated_query.reference.collection_id} ${generated_query.id}`)
+        let self = this._find_existing_query(generated_query) ?? generated_query;
+        if(self.id !== generated_query.id){
+            this._debug(`replacing self with doppleganger ${self.id}`);
+        }
+        self.has_run = true;
+        this._add_query(self);
+        this._update_data(self.reference, data._id, data, self);
     }
 
     delete_document_from_external(document_id: string) {

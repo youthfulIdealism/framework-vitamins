@@ -1,3 +1,5 @@
+//import type {Collection} from '@liminalfunctions/framework/'
+
 export type result = { _id: string };
 export type generated_collection_interface<T extends result> = {
     path: string[]
@@ -7,6 +9,7 @@ export type generated_collection_interface<T extends result> = {
     query: (query: any) => Promise<T[]>;
     document: (document_id: string) => generated_document_interface<T>
 }
+
 
 export type generated_document_interface<T extends result> = {
     path: string[]

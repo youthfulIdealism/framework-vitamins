@@ -129,4 +129,35 @@ describe('Bug Regressions', function () {
             assert.equal(api.collection('institution')?.document('*').collection('client').meta_counter.get(client_2._id), 1)
             assert.equal(api.collection('institution')?.document('*').collection('client').meta_counter.get(client_3._id), 1)*/
         });
+
+        it(`should allow for updating manually-added external documents`, async function () {
+            
+            let institution_database = database();
+            let {
+                vue,
+                api
+            } = get_setup(institution_database);
+    
+            let vitamins = new Vitamins(vue);
+            await sleep(20);
+
+            let institution = gen_institution('test institution');
+            //vitamins.vue['institutions'].set(institution._id, institution);
+            vitamins.add_document_from_external(api.collection('institution').document(institution._id), institution);
+    
+            let test_against = gen_vue();
+            test_against.institutions.set(institution._id, structuredClone(institution));
+    
+            assert.deepEqual(vue.institutions.get(institution._id), institution)
+            assert.deepEqual(vue, test_against)
+
+            let updated_institution = structuredClone(institution);
+            updated_institution.name = 'mystery hot dog shack'
+            test_against.institutions.set(updated_institution._id, structuredClone(updated_institution));
+
+            vitamins.update_document_from_external(institution._id, updated_institution);
+            
+            assert.deepEqual(vue.institutions.get(updated_institution._id), updated_institution)
+            assert.deepEqual(vue, test_against)
+        });
 });
