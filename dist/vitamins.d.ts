@@ -24,6 +24,7 @@ declare class Query {
     query_parameters?: any;
     child_generators: child_generator<result>[];
     has_run: boolean;
+    last_result?: result;
     constructor(vitamins: Vitamins, reference: generated_collection_interface<result> | generated_document_interface<result>, argument?: object, child_generators?: child_generator<result>[]);
     rerun(): Promise<void>;
     run(run_from_root?: boolean): Promise<Query>;
@@ -34,6 +35,7 @@ declare class Query {
     unlink_parent(id: string): void;
     equals(query: Query): boolean;
     clone(): Query;
+    next_page(): Promise<Query>;
     static find_query(queries: Query[], target: Query): Query;
 }
 export declare class Vitamins {

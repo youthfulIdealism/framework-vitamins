@@ -47,6 +47,8 @@ class Query {
     child_generators: child_generator<result>[];
     has_run: boolean;
 
+    last_result?: result;
+
     constructor(vitamins: Vitamins, reference: generated_collection_interface<result> | generated_document_interface<result>, argument?: object, child_generators: child_generator<result>[] = []){
         this.id = uuid();
         vitamins._debug(`constructing query ${reference.collection_id} ${this.id}`)
@@ -135,6 +137,7 @@ class Query {
                 for(let result of results){
                     this.vitamins._update_data(reference, result._id, result, this);
                 }
+                if(results.length > 0){ this.last_result = results[results.length - 1]; }
             }
         } catch(err){
             return Promise.reject(err);
@@ -172,8 +175,16 @@ class Query {
     }
 
     clone() {
-        let clone = new Query(this.vitamins, this.reference, this.query_parameters, this.child_generators);
-        return clone;
+        return new Query(this.vitamins, this.reference, this.query_parameters.structuredClone(), this.child_generators);
+    }
+
+    async next_page() {
+        if(this.operation !== 'query'){ throw new Error(`can only paginate queries`); }
+        if(!this.last_result){ throw new Error(`tried to paginate before the last results were loaded.`); }
+        let next_query = this.clone();
+        if(!next_query.query_parameters){ next_query.query_parameters = {}; }
+        next_query.query_parameters.cursor = this.last_result._id;
+        return await next_query.run();
     }
 
     static find_query(queries: Query[], target: Query){
