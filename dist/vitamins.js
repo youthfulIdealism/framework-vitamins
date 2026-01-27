@@ -154,7 +154,7 @@ class Query {
         return true;
     }
     clone() {
-        return new Query(this.vitamins, this.reference, this.query_parameters.structuredClone(), this.child_generators);
+        return new Query(this.vitamins, this.reference, structuredClone(this.query_parameters), this.child_generators.slice());
     }
     async next_page() {
         if (this.operation !== 'query') {
