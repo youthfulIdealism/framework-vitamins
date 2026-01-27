@@ -91,6 +91,11 @@ class Query {
 
         // if we already had that query,....
         if(self.id !== this.id){
+            // if the existing query is missing parents, add them
+            for(let parent_id of this.parents){
+                self.parents.add(parent_id)
+            }
+
             // if any generators were specified, look for new ones and add them.
             let new_child_generators = this.child_generators.filter(ele => !self.child_generators.includes(ele))
             for(let generator of new_child_generators) {
@@ -164,6 +169,11 @@ class Query {
             if(!compare_query_parameters(query.query_parameters as Object, this.query_parameters as Object)) { return false; }
         }
         return true;
+    }
+
+    clone() {
+        let clone = new Query(this.vitamins, this.reference, this.query_parameters, this.child_generators);
+        return clone;
     }
 
     static find_query(queries: Query[], target: Query){
@@ -241,6 +251,11 @@ export class Vitamins {
         if(!this.queries_by_collection.has(collection.collection_id)){ this.queries_by_collection.set(collection.collection_id, new Set()); }
         let generated_query = new Query(this, collection, query_parameters ?? {}, generators);
         return generated_query;
+    }
+
+    unlisten_query(query: Query) {
+        query.parents.delete('root');
+        this._cleanup([query], []);
     }
 
     add_document_from_external<Document extends generated_document_interface<result>>(collection: Document, data: result) {
@@ -410,6 +425,7 @@ export class Vitamins {
             while(check_queries_queue.length > 0){
                 let query = check_queries_queue.pop();
                 if(query.parents.size > 0){ continue; }
+                this._debug(`deleting parentless query ${query.id}`);
                 
                 for(let child_id of query.children){
                     let child = this.documents.get(child_id);
@@ -424,6 +440,7 @@ export class Vitamins {
             while(check_documents_queue.length > 0){
                 let document = check_documents_queue.pop();
                 if(document.parents.size > 0){ continue; }
+                this._debug(`deleting parentless document ${document.id}`);
 
                 for(let child_id of document.children){
                     let child = this.all_queries.get(child_id);
@@ -444,6 +461,4 @@ export class Vitamins {
             }
         }
     }
-
-    // TOOD: I need a method that updates/deletes the document from an external source, so that I can reimplement the Synchronizer.
 }

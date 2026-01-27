@@ -68,6 +68,9 @@ class Query {
         }
         self.vitamins._add_query(self);
         if (self.id !== this.id) {
+            for (let parent_id of this.parents) {
+                self.parents.add(parent_id);
+            }
             let new_child_generators = this.child_generators.filter(ele => !self.child_generators.includes(ele));
             for (let generator of new_child_generators) {
                 self.vitamins._debug(`ADDING CHILD GENERATOR`);
@@ -146,6 +149,10 @@ class Query {
         }
         return true;
     }
+    clone() {
+        let clone = new Query(this.vitamins, this.reference, this.query_parameters, this.child_generators);
+        return clone;
+    }
     static find_query(queries, target) {
         for (let query of queries) {
             if (query.equals(target)) {
@@ -223,6 +230,10 @@ export class Vitamins {
         }
         let generated_query = new Query(this, collection, query_parameters ?? {}, generators);
         return generated_query;
+    }
+    unlisten_query(query) {
+        query.parents.delete('root');
+        this._cleanup([query], []);
     }
     add_document_from_external(collection, data) {
         if (!this.queries_by_collection.has(collection.collection_id)) {
@@ -340,6 +351,7 @@ export class Vitamins {
                 if (query.parents.size > 0) {
                     continue;
                 }
+                this._debug(`deleting parentless query ${query.id}`);
                 for (let child_id of query.children) {
                     let child = this.documents.get(child_id);
                     check_documents_queue.push(child);
@@ -352,6 +364,7 @@ export class Vitamins {
                 if (document.parents.size > 0) {
                     continue;
                 }
+                this._debug(`deleting parentless document ${document.id}`);
                 for (let child_id of document.children) {
                     let child = this.all_queries.get(child_id);
                     check_queries_queue.push(this.all_queries.get(child_id));

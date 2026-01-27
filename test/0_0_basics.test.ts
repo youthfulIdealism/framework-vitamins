@@ -516,4 +516,80 @@ describe('Vitamins Basics', function () {
             ).run();
         }, 'Error: arbitrary error');
     });
+
+    it(`should handle an unlisten`, async function () {
+        let institution_1 = gen_institution('test institution 1')
+        let client_1 = gen_client(institution_1, 'test client 1')
+        let project_1 = gen_project(institution_1, client_1, 'test project 1')
+        let institution_database = database(institution_1);
+        let client_database = database(client_1);
+        let project_database = database(project_1);
+        let {
+            vue,
+            api
+        } = get_setup(institution_database, client_database, project_database);
+
+        let vitamins = new Vitamins(vue);
+        let query = await vitamins.query(api.collection('institution'), {},
+            (result) => vitamins.query(api.collection('institution')?.document('*').collection('client'), {institution_id: result._id }, 
+                (result) => vitamins.query(api.collection('institution')?.document('*').collection('project'), {client_id: result._id })
+            ),
+        ).run()
+        await sleep(20);
+
+        let test_against_phase_1 = gen_vue();
+        test_against_phase_1.institutions.set(institution_1._id, structuredClone(institution_1));
+        test_against_phase_1.clients.set(client_1._id, structuredClone(client_1));
+        test_against_phase_1.projects.set(project_1._id, structuredClone(project_1));
+
+        assert.deepEqual(vue, test_against_phase_1)
+
+        vitamins.unlisten_query(query);
+        await sleep(20);
+
+        let test_against_phase_2 = gen_vue();
+
+        assert.deepEqual(vue, test_against_phase_2)
+    });
+
+    it(`should handle an unlisten where two child queries point at the same document`, async function () {
+        let institution_1 = gen_institution('test institution 1')
+        let institution_2 = gen_institution('test institution 2')
+        let client_1 = gen_client(institution_1, 'test client 1')
+        let institution_database = database(institution_1, institution_2);
+        let client_database = database(client_1);
+        let {
+            vue,
+            api
+        } = get_setup(institution_database, client_database);
+
+        let vitamins = new Vitamins(vue);
+        vitamins.debug_on = true;
+        let query_1 = await vitamins.document(api.collection('institution').document(institution_1._id),
+            // both of these queries need to point at a specific institution
+            (institution) => vitamins.query(api.collection('institution')?.document('*').collection('client'), {institution_id: institution_1._id }),
+        ).run()
+
+        let query_2 = await vitamins.document(api.collection('institution').document(institution_2._id),
+            // both of these queries need to point at a specific institution
+            (institution) => vitamins.query(api.collection('institution')?.document('*').collection('client'), {institution_id: institution_1._id }),
+        ).run()
+        await sleep(20);
+
+        let test_against_phase_1 = gen_vue();
+        test_against_phase_1.institutions.set(institution_1._id, structuredClone(institution_1));
+        test_against_phase_1.institutions.set(institution_2._id, structuredClone(institution_2));
+        test_against_phase_1.clients.set(client_1._id, structuredClone(client_1));
+
+        assert.deepEqual(vue, test_against_phase_1)
+
+        vitamins.unlisten_query(query_1);
+        await sleep(20);
+
+        let test_against_phase_2 = gen_vue();
+        test_against_phase_2.institutions.set(institution_2._id, structuredClone(institution_2));
+        test_against_phase_2.clients.set(client_1._id, structuredClone(client_1));
+
+        assert.deepEqual(vue, test_against_phase_2)
+    });
 });

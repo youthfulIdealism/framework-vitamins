@@ -33,6 +33,7 @@ declare class Query {
     unlink_child(id: string): void;
     unlink_parent(id: string): void;
     equals(query: Query): boolean;
+    clone(): Query;
     static find_query(queries: Query[], target: Query): Query;
 }
 export declare class Vitamins {
@@ -44,6 +45,7 @@ export declare class Vitamins {
     constructor(vue: App | any);
     document<Document extends generated_document_interface<result>>(collection: Document, ...generators: child_generator<Infer_Collection_Returntype<Document>>[]): Query;
     query<Collection extends generated_collection_interface<result>>(collection: Collection, query_parameters: any, ...generators: child_generator<Infer_Collection_Returntype<Collection>>[]): Query;
+    unlisten_query(query: Query): void;
     add_document_from_external<Document extends generated_document_interface<result>>(collection: Document, data: result): void;
     delete_document_from_external(document_id: string): void;
     update_document_from_external(document_id: string, data: result): void;
