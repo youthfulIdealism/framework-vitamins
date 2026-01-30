@@ -1,6 +1,7 @@
 import { v4 as uuid } from 'uuid'
 import { App, Ref } from 'vue'
 import { generated_collection_interface, generated_document_interface, Infer_Collection_Returntype, result } from './type_generated_collection.js'
+import { deep_equal } from './deep_equals.js';
 
 
 type query_operation = "get" | "query";
@@ -206,6 +207,7 @@ function compare_query_parameters(a: object, b: object): boolean {
             if(!Array.isArray(value_b)){ return false; }
             if(!compare_array(value_a, value_b)){ return false; }
         } else if(value_a !== value_b){
+            if(typeof value_a === 'object'){ return deep_equal(value_a, value_b); }
             return false;
         }
     }

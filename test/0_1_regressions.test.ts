@@ -160,4 +160,21 @@ describe('Bug Regressions', function () {
             assert.deepEqual(vue.institutions.get(updated_institution._id), updated_institution)
             assert.deepEqual(vue, test_against)
         });
+
+        it(`should fix duplicate queries when using advanced queries`, async function () {
+            let institution = gen_institution('test institution')
+            let institution_database = database(institution);
+            let {
+                vue,
+                api
+            } = get_setup(institution_database);
+    
+            let vitamins = new Vitamins(vue);
+            let query_1 = await vitamins.query(api.collection('institution'), { advanced_query: { $and: [] }}).run()
+            await sleep(20);
+
+            let query_2 = await vitamins.query(api.collection('institution'), { advanced_query: { $and: [] }}).run()
+
+            assert.equal(query_1.id, query_2.id)
+        });
 });

@@ -1,4 +1,5 @@
 import { v4 as uuid } from 'uuid';
+import { deep_equal } from './deep_equals.js';
 class Document {
     id;
     vitamins;
@@ -198,6 +199,9 @@ function compare_query_parameters(a, b) {
             }
         }
         else if (value_a !== value_b) {
+            if (typeof value_a === 'object') {
+                return deep_equal(value_a, value_b);
+            }
             return false;
         }
     }
