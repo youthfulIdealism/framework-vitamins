@@ -177,4 +177,21 @@ describe('Bug Regressions', function () {
 
             assert.equal(query_1.id, query_2.id)
         });
+
+        it(`a document query that does not generate children should not fail`, async function () {
+            let institution = gen_institution('test institution')
+            let client_1 = gen_client(institution, 'test client 1')
+            let institution_database = database(institution);
+            let client_database = database(client_1);
+            let {
+                vue,
+                api
+            } = get_setup(institution_database, client_database);
+    
+            let vitamins = new Vitamins(vue);
+            let query_1 = await vitamins.document(api.collection('institution').document('irrelevant_doc'), 
+                (institution) => vitamins.document(api.collection('institution').document(institution._id).collection('client').document(client_1._id))
+            ).run()
+            await sleep(20);
+        });
 });

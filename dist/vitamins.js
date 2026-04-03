@@ -100,7 +100,9 @@ class Query {
             if (this.operation === 'get') {
                 let reference = this.reference;
                 let result = await reference.get();
-                this.vitamins._update_data(reference, result._id, result, this);
+                if (result) {
+                    this.vitamins._update_data(reference, result._id, result, this);
+                }
             }
             else if (this.operation === 'query') {
                 let reference = this.reference;

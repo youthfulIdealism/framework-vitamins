@@ -129,8 +129,9 @@ class Query {
                 let reference = this.reference as generated_document_interface<result>;
                 // TODO: how do I want to handle errors? This clearly needs to be in a try-catch.
                 let result = await reference.get();
-
-                this.vitamins._update_data(reference, result._id, result, this);
+                if(result){
+                    this.vitamins._update_data(reference, result._id, result, this);
+                }
             } else if(this.operation === 'query'){
                 let reference = this.reference as generated_collection_interface<result>;
                 // TODO: how do I want to handle errors? This clearly needs to be in a try-catch.
