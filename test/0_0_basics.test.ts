@@ -1,7 +1,7 @@
 import assert from "assert";
 
-import { generated_collection_interface, result } from '../dist/type_generated_collection'
-import { Vitamins } from '../dist/vitamins'
+import { generated_collection_interface, result } from '../dist/type_generated_collection.js'
+import { Vitamins } from '../dist/vitamins.js'
 
 import { Client, Institution, Mutualism, Project, gen_institution, gen_client, gen_project, gen_mutualism } from './utils/testing_harness.js'
 

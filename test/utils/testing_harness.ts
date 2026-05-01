@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid'
 
-import { generated_collection_interface, result } from '../../dist/type_generated_collection'
+import { generated_collection_interface, result } from '../../dist/type_generated_collection.js'
 
 function db_query_mock(db: Map<string, any>, query: object){
     let retval: any[] = [];

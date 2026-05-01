@@ -110,6 +110,7 @@ class Query {
             // generate the child queries for the new generators, since that wouldn't otherwise happen.
             for(let child_id of self.children) {
                 let document = self.vitamins.documents.get(child_id);
+                if(!document) { continue; }
                 let generated_child_queries = self.vitamins._generate_child_queries(document);
                 generated_child_queries.forEach(ele => self.vitamins._add_query(ele));
                 generated_child_queries.forEach(ele => ele.run());
@@ -247,12 +248,12 @@ export class Vitamins {
         this.debug_on = false;
     }
 
-    document<Document extends generated_document_interface<result>>(collection: Document, ...generators: child_generator<Infer_Collection_Returntype<Document>>[]): Query {
+    document<DOC extends generated_document_interface<result>>(document: DOC, ...generators: child_generator<Infer_Collection_Returntype<DOC>>[]): Query {
         // if queries_by_collection does not yet have a key for the relevant collection, create one. 
-        if(!this.queries_by_collection.has(collection.collection_id)){ this.queries_by_collection.set(collection.collection_id, new Set()); }
+        if(!this.queries_by_collection.has(document.collection_id)){ this.queries_by_collection.set(document.collection_id, new Set()); }
         
         // if the created query already exists within the system, set up to return the existing query instead
-        let generated_query = new Query(this, collection, undefined, generators);
+        let generated_query = new Query(this, document, undefined, generators as child_generator<result>[]);
         //let replacement_query = this._find_existing_query(generated_query) ?? generated_query;
         //if(generated_query.id !== replacement_query.id) { this._debug(`replacing generated query ${generated_query.id} with existing doppleganger ${replacement_query.id}`)}
 
@@ -260,10 +261,10 @@ export class Vitamins {
         return generated_query;
     }
 
-    query<Collection extends generated_collection_interface<result>>(collection: Collection, query_parameters: any, ...generators: child_generator<Infer_Collection_Returntype<Collection>>[]): Query {
+    query<COL extends generated_collection_interface<result>>(collection: COL, query_parameters: any, ...generators: child_generator<Infer_Collection_Returntype<COL>>[]): Query {
         // if queries_by_collection does not yet have a key for the relevant collection, create one. 
         if(!this.queries_by_collection.has(collection.collection_id)){ this.queries_by_collection.set(collection.collection_id, new Set()); }
-        let generated_query = new Query(this, collection, query_parameters ?? {}, generators);
+        let generated_query = new Query(this, collection, query_parameters ?? {}, generators as child_generator<result>[]);
         return generated_query;
     }
 
@@ -289,9 +290,9 @@ export class Vitamins {
     delete_document_from_external(document_id: string) {
         let document = this.documents.get(document_id);
         if(!document) { return; }
-        let parent_queries = Array.from(document.parents).map(ele => this.all_queries.get(ele));
+        let parent_queries = Array.from(document.parents).map(ele => this.all_queries.get(ele)) as Query[];
         document.parents.clear();
-        let child_queries =  Array.from(document.children).map(ele => this.all_queries.get(ele));
+        let child_queries = Array.from(document.children).map(ele => this.all_queries.get(ele)) as Query[];
         document.children.clear();
         parent_queries.forEach(ele => ele.unlink_child(document_id));
         child_queries.forEach(ele => ele.unlink_parent(document_id));
@@ -308,7 +309,7 @@ export class Vitamins {
 
     _find_existing_query(query: Query) {
         let collection_queries = this.queries_by_collection.get(query.reference.collection_id);
-        let existing_query = Query.find_query(Array.from(collection_queries), query);
+        let existing_query = Query.find_query(Array.from(collection_queries!), query);
         return existing_query;
     }
 
@@ -320,13 +321,13 @@ export class Vitamins {
         }
 
         // add the query to the maps and sets
-        let queries = this.queries_by_collection.get(query.reference.collection_id);
+        let queries = this.queries_by_collection.get(query.reference.collection_id)!;
         queries.add(query);
         this.all_queries.set(query.id, query);
     }
 
     _delete_query(query: Query) {
-        this.queries_by_collection.get(query.reference.collection_id).delete(query);
+        this.queries_by_collection.get(query.reference.collection_id)!.delete(query);
         this.all_queries.delete(query.id);
     }
 
@@ -338,11 +339,11 @@ export class Vitamins {
     _update_data(reference: generated_collection_interface<result> | generated_document_interface<result> | undefined, document_id: string, data: result, query?: Query) {
         // if this document doesn't already exist, create it.
         let document = this.documents.get(document_id);
-        if(!document && reference) {
+        if(!document) {
+            if(!reference){ return; }
             document = new Document(this, reference, data);
             this._add_document(document);
         }
-        if(!document && !reference){ return; }
 
         this._debug(`updating data for a ${document.reference.collection_id} ${document_id}`);
 
@@ -361,7 +362,7 @@ export class Vitamins {
         document.children.clear();
 
         for(let child_query_id of document_previous_children) {
-            this.all_queries.get(child_query_id).unlink_parent(document.id);
+            this.all_queries.get(child_query_id)!.unlink_parent(document.id);
         }
 
         // get the full set of parent queries so that we can re-generate any child queries.
@@ -371,7 +372,7 @@ export class Vitamins {
 
         generated_child_queries.forEach(ele => ele.run(false));
         
-        let test_queries_for_deletion: Query[] = document_previous_children.map(query_id => this.all_queries.get(query_id));
+        let test_queries_for_deletion: Query[] = document_previous_children.map(query_id => this.all_queries.get(query_id)) as Query[];
         let bugfind = Array.from(document_previous_children).filter(id => !this.all_queries.has(id))
         if(bugfind.length > 0){ this._debug(`BREAKING ID:`); this._debug(bugfind); }
 
@@ -409,9 +410,9 @@ export class Vitamins {
         let all_generated_child_queries: Query[] = [];
 
         for(let query_parent_id of document.parents) {
-            let query_parent = this.all_queries.get(query_parent_id);
+            let query_parent = this.all_queries.get(query_parent_id)!;
 
-            let generated_child_queries = (query_parent.child_generators ?? []).map(generator => generator(document.document)).filter(ele => ele);
+            let generated_child_queries = (query_parent.child_generators ?? []).map(generator => generator(document.document)).filter(ele => ele) as Query[];
             for(let q = 0; q < generated_child_queries.length; q++){
                 // if we already had the child query, use the existing one instead of the new one
                 let generated_child_query = generated_child_queries[q];
@@ -437,12 +438,12 @@ export class Vitamins {
 
         while(check_queries_queue.length > 0 || check_documents_queue.length > 0) {
             while(check_queries_queue.length > 0){
-                let query = check_queries_queue.pop();
+                let query = check_queries_queue.pop()!;
                 if(query.parents.size > 0){ continue; }
                 this._debug(`deleting parentless query ${query.id}`);
                 
                 for(let child_id of query.children){
-                    let child = this.documents.get(child_id);
+                    let child = this.documents.get(child_id)!;
                     check_documents_queue.push(child);
                     child.unlink_parent(query.id);
                 }
@@ -452,13 +453,13 @@ export class Vitamins {
             }
             
             while(check_documents_queue.length > 0){
-                let document = check_documents_queue.pop();
+                let document = check_documents_queue.pop()!;
                 if(document.parents.size > 0){ continue; }
                 this._debug(`deleting parentless document ${document.id}`);
 
                 for(let child_id of document.children){
-                    let child = this.all_queries.get(child_id);
-                    check_queries_queue.push(this.all_queries.get(child_id));
+                    let child = this.all_queries.get(child_id)!;
+                    check_queries_queue.push(child);
                     child.unlink_parent(document.id);
                 }
 

@@ -189,7 +189,8 @@ describe('Bug Regressions', function () {
             } = get_setup(institution_database, client_database);
     
             let vitamins = new Vitamins(vue);
-            let query_1 = await vitamins.document(api.collection('institution').document('irrelevant_doc'), 
+            let query_1 = await vitamins.document(api.collection('institution').document('irrelevant_doc'),
+                //@ts-ignore 
                 (institution) => vitamins.document(api.collection('institution').document(institution._id).collection('client').document(client_1._id))
             ).run()
             await sleep(20);
