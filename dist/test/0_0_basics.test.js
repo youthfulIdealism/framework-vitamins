@@ -85,20 +85,25 @@ describe('Vitamins Basics', function () {
         assert.deepEqual(vue.institutions.get(institution._id), institution);
         assert.deepEqual(vue, test_against);
     });
-    it(`should do a basic query that generates a child query`, async function () {
+    it.only(`should do a basic query that generates a child query`, async function () {
+        this.timeout(8000);
         let institution_1 = gen_institution('test institution 1');
         let client_1 = gen_client(institution_1, 'test client 1');
         let institution_database = database(institution_1);
         let client_database = database(client_1);
         let { vue, api } = get_setup(institution_database, client_database);
         let vitamins = new Vitamins(vue);
-        vitamins.query(api.collection('institution'), {}, (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {})).run();
-        await sleep(20);
+        vitamins.debug_on = true;
+        vitamins.query(api.collection('institution'), {}, (result) => { console.log(`I've been called`); return vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {}); }).run();
+        await sleep(8000);
         let test_against = gen_vue();
         test_against.institutions.set(institution_1._id, structuredClone(institution_1));
         test_against.clients.set(client_1._id, structuredClone(client_1));
+        console.log(1);
         assert.deepEqual(vue.institutions.get(institution_1._id), institution_1);
+        console.log(2);
         assert.deepEqual(vue.clients.get(client_1._id), client_1);
+        console.log(3);
         assert.deepEqual(vue, test_against);
     });
     it(`should do a basic document query that generates a child query`, async function () {

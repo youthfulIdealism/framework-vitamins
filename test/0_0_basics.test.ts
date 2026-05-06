@@ -564,7 +564,6 @@ describe('Vitamins Basics', function () {
         } = get_setup(institution_database, client_database);
 
         let vitamins = new Vitamins(vue);
-        vitamins.debug_on = true;
         let query_1 = await vitamins.document(api.collection('institution').document(institution_1._id),
             // both of these queries need to point at a specific institution
             (institution) => vitamins.query(api.collection('institution')?.document('*').collection('client'), {institution_id: institution_1._id }),

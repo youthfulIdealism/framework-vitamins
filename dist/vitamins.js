@@ -81,6 +81,9 @@ class Query {
             }
             for (let child_id of self.children) {
                 let document = self.vitamins.documents.get(child_id);
+                if (!document) {
+                    continue;
+                }
                 let generated_child_queries = self.vitamins._generate_child_queries(document);
                 generated_child_queries.forEach(ele => self.vitamins._add_query(ele));
                 generated_child_queries.forEach(ele => ele.run());
@@ -240,11 +243,11 @@ export class Vitamins {
         this.all_queries = new Map();
         this.debug_on = false;
     }
-    document(collection, ...generators) {
-        if (!this.queries_by_collection.has(collection.collection_id)) {
-            this.queries_by_collection.set(collection.collection_id, new Set());
+    document(document, ...generators) {
+        if (!this.queries_by_collection.has(document.collection_id)) {
+            this.queries_by_collection.set(document.collection_id, new Set());
         }
-        let generated_query = new Query(this, collection, undefined, generators);
+        let generated_query = new Query(this, document, undefined, generators);
         return generated_query;
     }
     query(collection, query_parameters, ...generators) {
@@ -316,12 +319,12 @@ export class Vitamins {
     }
     _update_data(reference, document_id, data, query) {
         let document = this.documents.get(document_id);
-        if (!document && reference) {
+        if (!document) {
+            if (!reference) {
+                return;
+            }
             document = new Document(this, reference, data);
             this._add_document(document);
-        }
-        if (!document && !reference) {
-            return;
         }
         this._debug(`updating data for a ${document.reference.collection_id} ${document_id}`);
         document.document = data;
@@ -390,7 +393,7 @@ export class Vitamins {
                 this._debug(`deleting parentless document ${document.id}`);
                 for (let child_id of document.children) {
                     let child = this.all_queries.get(child_id);
-                    check_queries_queue.push(this.all_queries.get(child_id));
+                    check_queries_queue.push(child);
                     child.unlink_parent(document.id);
                 }
                 this.documents.delete(document.id);
