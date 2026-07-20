@@ -99,6 +99,21 @@ describe('Vitamins Basics', function () {
         assert.deepEqual(vue.institutions.get(institution._id), institution)
         assert.deepEqual(vue, test_against)
     });
+    
+    it(`get_results should work`, async function () {
+        let institution = gen_institution('test institution')
+        let institution_database = database(institution);
+        let {
+            vue,
+            api
+        } = get_setup(institution_database);
+
+        let vitamins = new Vitamins(vue);
+        let query = await vitamins.query(api.collection('institution'), {}).run()
+        await sleep(20);
+
+        assert.deepEqual(await query.get_results(), [institution]);
+    });
 
     it(`should do a basic query that returns multiple children`, async function () {
         let institution_1 = gen_institution('test institution 1')

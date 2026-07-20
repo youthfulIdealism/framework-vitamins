@@ -203,7 +203,7 @@ class Query {
         await this.run_wait;
         return Array.from(this.children).map((ele_id: string) => {
             let document = this.vitamins.documents.get(ele_id)!;
-            return this.vitamins.vue[document.reference.collection_name_plural][document.document._id];
+            return this.vitamins.vue[document.reference.collection_name_plural].get(document.id);
         }) as T[];
     }
 
