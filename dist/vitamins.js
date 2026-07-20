@@ -191,7 +191,7 @@ class Query {
         await this.run_wait;
         return Array.from(this.children).map((ele_id) => {
             let document = this.vitamins.documents.get(ele_id);
-            return this.vitamins.vue[document.reference.collection_name_plural];
+            return this.vitamins.vue[document.reference.collection_name_plural][document.document._id];
         });
     }
     static find_query(queries, target) {
