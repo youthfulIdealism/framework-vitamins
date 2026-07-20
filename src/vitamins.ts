@@ -2,6 +2,7 @@ import { v4 as uuid } from 'uuid'
 import { App, computed, Ref } from 'vue'
 import { generated_collection_interface, generated_document_interface, Infer_Collection_Returntype, result } from './type_generated_collection.js'
 import { deep_equal } from './deep_equals.js';
+import { resolve } from 'path';
 
 
 type query_operation = "get" | "query";
@@ -47,6 +48,8 @@ class Query {
 
     child_generators: child_generator<result>[];
     has_run: boolean;
+    run_wait?: Promise<boolean>;
+    #fulfill_run_wait?: (arg: boolean) => void;
 
     last_result?: result;
 
@@ -59,6 +62,9 @@ class Query {
         this.reference = reference;
         this.child_generators = child_generators;
         this.collection_path = this.reference.path.join('/')
+        this.run_wait = new Promise((resolve, reject) => {
+            this.#fulfill_run_wait = resolve;
+        });
 
         // if the reference has a query method, then it's a collection reference and we should do query operations on it
         if((reference as generated_collection_interface<result>).query) {
@@ -76,6 +82,9 @@ class Query {
     async rerun() {
         this.vitamins._debug(`RERUNNING QUERY`)
         this.has_run = false;
+        this.run_wait = new Promise((resolve, reject) => {
+            this.#fulfill_run_wait = resolve;
+        });
         await this._fetch();
     }
 
@@ -144,7 +153,7 @@ class Query {
             }
         } catch(err){
             return Promise.reject(err);
-        }
+        } finally {this.#fulfill_run_wait!(true); }
     }
 
     link_child(document: Document) {
@@ -190,7 +199,8 @@ class Query {
         return await next_query.run();
     }
 
-    get_children<T>() {
+    async get_results<T>() {
+        await this.run_wait;
         return Array.from(this.children).map(ele => this.vitamins.documents.get(ele)) as T[];
     }
 
