@@ -13,6 +13,7 @@ declare class Document {
     unlink_parent(id: string): void;
 }
 declare class Query {
+    #private;
     id: string;
     vitamins: Vitamins;
     children: Set<string>;
@@ -24,6 +25,7 @@ declare class Query {
     query_parameters?: any;
     child_generators: child_generator<result>[];
     has_run: boolean;
+    run_wait?: Promise<boolean>;
     last_result?: result;
     constructor(vitamins: Vitamins, reference: generated_collection_interface<result> | generated_document_interface<result>, argument?: object, child_generators?: child_generator<result>[]);
     rerun(): Promise<void>;
@@ -36,6 +38,7 @@ declare class Query {
     equals(query: Query): boolean;
     clone(): Query;
     next_page(): Promise<Query>;
+    get_results<T>(): Promise<T[]>;
     static find_query(queries: Query[], target: Query): Query;
 }
 export declare class Vitamins {

@@ -201,7 +201,10 @@ class Query {
 
     async get_results<T>() {
         await this.run_wait;
-        return Array.from(this.children).map(ele => this.vitamins.documents.get(ele)) as T[];
+        return Array.from(this.children).map((ele_id: string) => {
+            let document = this.vitamins.documents.get(ele_id)!;
+            return this.vitamins.vue[document.reference.collection_name_plural];
+        }) as T[];
     }
 
     static find_query(queries: Query[], target: Query){

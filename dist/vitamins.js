@@ -31,6 +31,8 @@ class Query {
     query_parameters;
     child_generators;
     has_run;
+    run_wait;
+    #fulfill_run_wait;
     last_result;
     constructor(vitamins, reference, argument, child_generators = []) {
         this.id = uuid();
@@ -41,6 +43,9 @@ class Query {
         this.reference = reference;
         this.child_generators = child_generators;
         this.collection_path = this.reference.path.join('/');
+        this.run_wait = new Promise((resolve, reject) => {
+            this.#fulfill_run_wait = resolve;
+        });
         if (reference.query) {
             this.query_parameters = argument;
             this.operation = 'query';
@@ -57,6 +62,9 @@ class Query {
     async rerun() {
         this.vitamins._debug(`RERUNNING QUERY`);
         this.has_run = false;
+        this.run_wait = new Promise((resolve, reject) => {
+            this.#fulfill_run_wait = resolve;
+        });
         await this._fetch();
     }
     async run(run_from_root = true) {
@@ -121,6 +129,9 @@ class Query {
         catch (err) {
             return Promise.reject(err);
         }
+        finally {
+            this.#fulfill_run_wait(true);
+        }
     }
     link_child(document) {
         this.children.add(document.id);
@@ -175,6 +186,13 @@ class Query {
         }
         next_query.query_parameters.cursor = this.last_result._id;
         return await next_query.run();
+    }
+    async get_results() {
+        await this.run_wait;
+        return Array.from(this.children).map((ele_id) => {
+            let document = this.vitamins.documents.get(ele_id);
+            return this.vitamins.vue[document.reference.collection_name_plural];
+        });
     }
     static find_query(queries, target) {
         for (let query of queries) {
