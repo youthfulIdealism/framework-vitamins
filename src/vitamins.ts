@@ -1,5 +1,5 @@
 import { v4 as uuid } from 'uuid'
-import { App, Ref } from 'vue'
+import { App, computed, Ref } from 'vue'
 import { generated_collection_interface, generated_document_interface, Infer_Collection_Returntype, result } from './type_generated_collection.js'
 import { deep_equal } from './deep_equals.js';
 
@@ -188,6 +188,10 @@ class Query {
         if(!next_query.query_parameters){ next_query.query_parameters = {}; }
         next_query.query_parameters.cursor = this.last_result._id;
         return await next_query.run();
+    }
+
+    get_children<T>() {
+        return Array.from(this.children).map(ele => this.vitamins.documents.get(ele)) as T[];
     }
 
     static find_query(queries: Query[], target: Query){
