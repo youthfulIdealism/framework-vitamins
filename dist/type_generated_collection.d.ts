@@ -15,4 +15,4 @@ export type generated_document_interface<T extends result> = {
     document_id: string;
     get: () => Promise<T>;
 };
-export type Infer_Collection_Returntype<Type> = Type extends generated_collection_interface<infer E> ? E : never;
+export type Infer_Collection_Returntype<Type> = Type extends generated_collection_interface<infer E> ? E : Type extends generated_document_interface<infer E> ? E : never;

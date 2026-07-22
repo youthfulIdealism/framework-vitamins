@@ -106,8 +106,7 @@ describe('Bug Regressions', function () {
     
             vitamins.query(api.collection('institution'), {},
                 (institution) => { return vitamins.document(api.collection('institution').document(institution_1._id).collection('project').document(project_1._id),
-                    //@ts-ignore
-                    (project) => { return vitamins.query(api.collection('institution').document(institution_1._id).collection('client').document(client_1._id).collection('mutualism'), undefined);}
+                    (project) => { return vitamins.query(api.collection('institution').document(institution_1._id).collection('client').document(client_1._id).collection('mutualism')!, undefined);}
                 )}
             ).run()
             await sleep(20);
@@ -175,7 +174,7 @@ describe('Bug Regressions', function () {
 
             let query_2 = await vitamins.query(api.collection('institution'), { advanced_query: { $and: [] }}).run()
 
-            assert.equal(query_1.id, query_2.id)
+            assert.equal(query_1.query.id, query_2.query.id)
         });
 
         it(`a document query that does not generate children should not fail`, async function () {
@@ -190,7 +189,6 @@ describe('Bug Regressions', function () {
     
             let vitamins = new Vitamins(vue);
             let query_1 = await vitamins.document(api.collection('institution').document('irrelevant_doc'),
-                //@ts-ignore 
                 (institution) => vitamins.document(api.collection('institution').document(institution._id).collection('client').document(client_1._id))
             ).run()
             await sleep(20);

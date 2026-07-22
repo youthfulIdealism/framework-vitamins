@@ -193,8 +193,7 @@ describe('Vitamins Basics', function () {
         } = get_setup(institution_database, client_database);
 
         let vitamins = new Vitamins(vue);
-        //@ts-expect-error
-        vitamins.query(api.collection('institution').document(institution_1._id), undefined,
+        vitamins.document(api.collection('institution').document(institution_1._id),
             (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {})
         ).run()
         await sleep(20);
@@ -303,15 +302,13 @@ describe('Vitamins Basics', function () {
 
         let vitamins = new Vitamins(vue);
         
-        //@ts-expect-error
-        vitamins.query(api.collection('institution')?.document(institution_1._id) as Collection, undefined,
+        vitamins.document(api.collection('institution')?.document(institution_1._id),
             (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {_id: client_1._id}),
             (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {_id: client_2._id}),
         ).run()
         await sleep(20);
 
-        //@ts-expect-error
-        vitamins.query(api.collection('institution')?.document(institution_1._id) as Collection, undefined,
+        vitamins.document(api.collection('institution')?.document(institution_1._id),
             (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {_id: client_2._id}),
             (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {_id: client_3._id}),
         ).run()
@@ -346,9 +343,7 @@ describe('Vitamins Basics', function () {
         } = get_setup(institution_database, client_database);
 
         let vitamins = new Vitamins(vue);
-        //@ts-expect-error
-        let query = await vitamins.document(api.collection('institution')?.document('*').collection('client').document(client_1._id) as Collection,
-            //@ts-expect-error
+        let query = await vitamins.document(api.collection('institution')?.document('*').collection('client').document(client_1._id),
             (result) => vitamins.query(api.collection('institution'), {_id: result.institution_id }),
         ).run()
         await sleep(20);
@@ -386,9 +381,7 @@ describe('Vitamins Basics', function () {
         } = get_setup(institution_database, client_database);
 
         let vitamins = new Vitamins(vue);
-        //@ts-expect-error
-        let query = await vitamins.document(api.collection('institution')?.document('*').collection('client').document(client_1._id) as Collection,
-            //@ts-expect-error
+        let query = await vitamins.document(api.collection('institution')?.document('*').collection('client').document(client_1._id),
             (result) => vitamins.query(api.collection('institution'), {_id: result.institution_id }),
         ).run()
         await sleep(20);
@@ -498,7 +491,6 @@ describe('Vitamins Basics', function () {
         assert.rejects(async () => {
             let vitamins = new Vitamins(vue);
             await vitamins.document(api.collection('institution').document(institution_1._id),
-                //@ts-expect-error
                 (result) => vitamins.query(api.collection('institution')?.document(result._id).collection('client'), {})
             ).run()
         }, 'Error: arbitrary error');
