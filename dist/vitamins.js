@@ -68,39 +68,55 @@ class Query {
         await this._fetch();
     }
     async run(run_from_root = true) {
-        this.vitamins._debug(`running ${this.reference.collection_id} ${this.id}`);
-        let self = this.vitamins._find_existing_query(this) ?? this;
+        let vitamins = this.vitamins;
+        vitamins._debug(`running ${this.reference.collection_id} ${this.id}`);
+        let self = vitamins._find_existing_query(this) ?? this;
         if (self.id !== this.id) {
-            this.vitamins._debug(`replacing self ${this.id} with doppleganger ${self.id}`);
+            vitamins._debug(`replacing self ${this.id} with doppleganger ${self.id}`);
         }
-        if (run_from_root && !self.parents.has('root')) {
-            self.parents.add('root');
+        let root_id = `root_${uuid()}`;
+        if (run_from_root) {
+            self.parents.add(root_id);
         }
-        self.vitamins._add_query(self);
+        vitamins._add_query(self);
         if (self.id !== this.id) {
             for (let parent_id of this.parents) {
                 self.parents.add(parent_id);
             }
             let new_child_generators = this.child_generators.filter(ele => !self.child_generators.includes(ele));
             for (let generator of new_child_generators) {
-                self.vitamins._debug(`ADDING CHILD GENERATOR`);
-                self.vitamins._debug(generator);
+                vitamins._debug(`ADDING CHILD GENERATOR`);
+                vitamins._debug(generator);
                 self.child_generators.push(generator);
             }
             for (let child_id of self.children) {
-                let document = self.vitamins.documents.get(child_id);
+                let document = vitamins.documents.get(child_id);
                 if (!document) {
                     continue;
                 }
-                let generated_child_queries = self.vitamins._generate_child_queries(document);
-                generated_child_queries.forEach(ele => self.vitamins._add_query(ele));
-                generated_child_queries.forEach(ele => ele.run());
+                let generated_child_queries = vitamins._generate_child_queries(document);
+                generated_child_queries.forEach(ele => vitamins._add_query(ele));
+                generated_child_queries.forEach(ele => ele.run(false));
             }
         }
         else {
             await self._fetch();
         }
-        return self;
+        if (run_from_root) {
+            return {
+                query: self,
+                get_results: self.get_results.bind(self),
+                rerun: self.rerun.bind(self),
+                unlisten: () => {
+                    vitamins.unlisten_query(self, root_id);
+                }
+            };
+        }
+        return {
+            query: self,
+            get_results: self.get_results.bind(self),
+            rerun: self.rerun.bind(self),
+        };
     }
     async _fetch() {
         if (this.has_run) {
@@ -185,7 +201,7 @@ class Query {
             next_query.query_parameters = {};
         }
         next_query.query_parameters.cursor = this.last_result._id;
-        return await next_query.run();
+        return await next_query.run(true);
     }
     async get_results() {
         await this.run_wait;
@@ -275,8 +291,8 @@ export class Vitamins {
         let generated_query = new Query(this, collection, query_parameters ?? {}, generators);
         return generated_query;
     }
-    unlisten_query(query) {
-        query.parents.delete('root');
+    unlisten_query(query, root_id) {
+        query.parents.delete(root_id);
         this._cleanup([query], []);
     }
     add_document_from_external(collection, data) {

@@ -29,7 +29,23 @@ declare class Query {
     last_result?: result;
     constructor(vitamins: Vitamins, reference: generated_collection_interface<result> | generated_document_interface<result>, argument?: object, child_generators?: child_generator<result>[]);
     rerun(): Promise<void>;
-    run(run_from_root?: boolean): Promise<Query>;
+    run(): Promise<{
+        query: Query;
+        get_results: Query['get_results'];
+        rerun: Query['rerun'];
+        unlisten: () => void;
+    }>;
+    run(run_from_root: true): Promise<{
+        query: Query;
+        get_results: Query['get_results'];
+        rerun: Query['rerun'];
+        unlisten: () => void;
+    }>;
+    run(run_from_root: false): Promise<{
+        query: Query;
+        get_results: Query['get_results'];
+        rerun: Query['rerun'];
+    }>;
     _fetch(): Promise<never>;
     link_child(document: Document): void;
     link_parent(document: Document): void;
@@ -37,7 +53,12 @@ declare class Query {
     unlink_parent(id: string): void;
     equals(query: Query): boolean;
     clone(): Query;
-    next_page(): Promise<Query>;
+    next_page(): Promise<{
+        query: Query;
+        get_results: Query["get_results"];
+        rerun: Query["rerun"];
+        unlisten: () => void;
+    }>;
     get_results<T>(): Promise<T[]>;
     static find_query(queries: Query[], target: Query): Query;
 }
@@ -50,7 +71,7 @@ export declare class Vitamins {
     constructor(vue: App | any);
     document<DOC extends generated_document_interface<result>>(document: DOC, ...generators: child_generator<Infer_Collection_Returntype<DOC>>[]): Query;
     query<COL extends generated_collection_interface<result>>(collection: COL, query_parameters: any, ...generators: child_generator<Infer_Collection_Returntype<COL>>[]): Query;
-    unlisten_query(query: Query): void;
+    unlisten_query(query: Query, root_id: string): void;
     add_document_from_external<Document extends generated_document_interface<result>>(collection: Document, data: result): void;
     delete_document_from_external(document_id: string): void;
     update_document_from_external(document_id: string, data: result): void;

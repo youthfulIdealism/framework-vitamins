@@ -88,18 +88,23 @@ class Query {
         await this._fetch();
     }
 
-    async run(run_from_root: boolean = true): Promise<Query> {
-        this.vitamins._debug(`running ${this.reference.collection_id} ${this.id}`)
+    async run(): Promise<{ query: Query, get_results: Query['get_results'], rerun: Query['rerun'], unlisten: () => void}>
+    async run(run_from_root: true): Promise<{ query: Query, get_results: Query['get_results'], rerun: Query['rerun'], unlisten: () => void }>
+    async run(run_from_root: false): Promise<{ query: Query,  get_results: Query['get_results'], rerun: Query['rerun'], }> 
+    async run(run_from_root: boolean = true){
+        let vitamins = this.vitamins;
+        vitamins._debug(`running ${this.reference.collection_id} ${this.id}`)
        
         // automatically replace yourself with an existing query if appliccable
-        let self = this.vitamins._find_existing_query(this) ?? this;
-        if(self.id !== this.id) { this.vitamins._debug(`replacing self ${this.id} with doppleganger ${self.id}`)}
+        let self = vitamins._find_existing_query(this) ?? this;
+        if(self.id !== this.id) { vitamins._debug(`replacing self ${this.id} with doppleganger ${self.id}`)}
 
-        if(run_from_root && !self.parents.has('root')){
-            self.parents.add('root');
+        let root_id = `root_${uuid()}`;
+        if(run_from_root){
+            self.parents.add(root_id);
         }
 
-        self.vitamins._add_query(self);
+        vitamins._add_query(self);
 
         // if we already had that query,....
         if(self.id !== this.id){
@@ -111,24 +116,39 @@ class Query {
             // if any generators were specified, look for new ones and add them.
             let new_child_generators = this.child_generators.filter(ele => !self.child_generators.includes(ele))
             for(let generator of new_child_generators) {
-                self.vitamins._debug(`ADDING CHILD GENERATOR`)
-                self.vitamins._debug(generator)
+                vitamins._debug(`ADDING CHILD GENERATOR`)
+                vitamins._debug(generator)
                 self.child_generators.push(generator);
             }
 
             // generate the child queries for the new generators, since that wouldn't otherwise happen.
             for(let child_id of self.children) {
-                let document = self.vitamins.documents.get(child_id);
+                let document = vitamins.documents.get(child_id);
                 if(!document) { continue; }
-                let generated_child_queries = self.vitamins._generate_child_queries(document);
-                generated_child_queries.forEach(ele => self.vitamins._add_query(ele));
-                generated_child_queries.forEach(ele => ele.run());
+                let generated_child_queries = vitamins._generate_child_queries(document);
+                generated_child_queries.forEach(ele => vitamins._add_query(ele));
+                generated_child_queries.forEach(ele => ele.run(false));
             }
         } else {
             await self._fetch();
         }
 
-        return self;
+        if(run_from_root){
+            return {
+                query: self,
+                get_results: self.get_results.bind(self),
+                rerun: self.rerun.bind(self),
+                unlisten: () =>{
+                    vitamins.unlisten_query(self, root_id)
+                }
+            };
+        }
+        
+        return {
+            query: self,
+            get_results: self.get_results.bind(self),
+            rerun: self.rerun.bind(self),
+        }
     }
 
     async _fetch(){
@@ -196,7 +216,7 @@ class Query {
         let next_query = this.clone();
         if(!next_query.query_parameters){ next_query.query_parameters = {}; }
         next_query.query_parameters.cursor = this.last_result._id;
-        return await next_query.run();
+        return await next_query.run(true);
     }
 
     async get_results<T>() {
@@ -285,8 +305,8 @@ export class Vitamins {
         return generated_query;
     }
 
-    unlisten_query(query: Query) {
-        query.parents.delete('root');
+    unlisten_query(query: Query, root_id: string) {
+        query.parents.delete(root_id);
         this._cleanup([query], []);
     }
 

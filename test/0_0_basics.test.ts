@@ -559,7 +559,7 @@ describe('Vitamins Basics', function () {
 
         assert.deepEqual(vue, test_against_phase_1)
 
-        vitamins.unlisten_query(query);
+        query.unlisten();
         await sleep(20);
 
         let test_against_phase_2 = gen_vue();
@@ -597,7 +597,7 @@ describe('Vitamins Basics', function () {
 
         assert.deepEqual(vue, test_against_phase_1)
 
-        vitamins.unlisten_query(query_1);
+        query_1.unlisten();
         await sleep(20);
 
         let test_against_phase_2 = gen_vue();

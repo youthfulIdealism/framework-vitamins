@@ -195,4 +195,26 @@ describe('Bug Regressions', function () {
             ).run()
             await sleep(20);
         });
+
+        it(`unlistening to one of two identical queries should not unlisten to both.`, async function () {
+            let institution = gen_institution('test institution')
+            let institution_database = database(institution);
+            let {
+                vue,
+                api
+            } = get_setup(institution_database);
+    
+            let vitamins = new Vitamins(vue);
+            let query_1 = await vitamins.document(api.collection('institution').document('irrelevant_doc')).run();
+            let query_2 = await vitamins.document(api.collection('institution').document('irrelevant_doc')).run();
+            let query_3 = await vitamins.document(api.collection('institution').document('irrelevant_doc')).run();
+
+            assert.equal(query_1.query.parents.size, 3);
+            query_1.unlisten();
+            assert.equal(query_1.query.parents.size, 2);
+            query_2.unlisten();
+            assert.equal(query_1.query.parents.size, 1);
+            query_3.unlisten();
+            assert.equal(query_1.query.parents.size, 0);
+        });
 });
