@@ -108,10 +108,15 @@ class Query {
 
         // if we already had that query,....
         if(self.id !== this.id){
-            // if the existing query is missing parents, add them
+            // if the existing query is missing parents, add them, and repoint those parents
+            // at the existing query so this duplicate doesn't linger in the graph.
             for(let parent_id of this.parents){
                 self.parents.add(parent_id)
+                let document = vitamins.documents.get(parent_id);
+                if(document?.children.delete(this.id)) { document.children.add(self.id); }
             }
+            this.parents.clear();
+            vitamins._delete_query(this);
 
             // if any generators were specified, look for new ones and add them.
             let new_child_generators = this.child_generators.filter(ele => !self.child_generators.includes(ele))
@@ -122,12 +127,23 @@ class Query {
             }
 
             // generate the child queries for the new generators, since that wouldn't otherwise happen.
-            for(let child_id of self.children) {
-                let document = vitamins.documents.get(child_id);
-                if(!document) { continue; }
-                let generated_child_queries = vitamins._generate_child_queries(document);
-                generated_child_queries.forEach(ele => vitamins._add_query(ele));
-                generated_child_queries.forEach(ele => ele.run(false));
+            // Only the new generators are run: the existing ones have already produced their children.
+            // Skip if this query is already being re-walked further up the (synchronous) call stack,
+            // since reciprocal generators between collections would otherwise recurse forever.
+            // The generators are still attached to the query, so they'll run on future document updates.
+            if(new_child_generators.length > 0 && !vitamins._rewalking_queries.has(self.id)) {
+                vitamins._rewalking_queries.add(self.id);
+                try {
+                    for(let child_id of Array.from(self.children)) {
+                        let document = vitamins.documents.get(child_id);
+                        if(!document) { continue; }
+                        let generated_child_queries = new_child_generators.map(generator => generator(document.document)).filter(ele => ele) as Query[];
+                        generated_child_queries.forEach(ele => ele.link_parent(document));
+                        generated_child_queries.forEach(ele => ele.run(false));
+                    }
+                } finally {
+                    vitamins._rewalking_queries.delete(self.id);
+                }
             }
         } else {
             await self._fetch();
@@ -275,7 +291,8 @@ export class Vitamins {
     documents: Map<string, Document> // document id -> document
     all_queries: Map<string, Query>
     queries_by_collection: Map<string, Set<Query>>// collection id -> document[]
-    debug_on: boolean; 
+    debug_on: boolean;
+    _rewalking_queries: Set<string> // ids of queries whose children are currently being re-walked in Query.run()
 
     constructor(vue: App | any) {
         this.vue = vue;
@@ -283,6 +300,7 @@ export class Vitamins {
         this.queries_by_collection = new Map();
         this.all_queries = new Map()
         this.debug_on = false;
+        this._rewalking_queries = new Set();
     }
 
     document<DOC extends generated_document_interface<result>>(document: DOC, ...generators: child_generator<Infer_Collection_Returntype<DOC>>[]): Query {
@@ -403,8 +421,8 @@ export class Vitamins {
         }
 
         // get the full set of parent queries so that we can re-generate any child queries.
+        // run() registers each query itself (or swaps it for an existing duplicate), so don't pre-register them here
         let generated_child_queries = this._generate_child_queries(document);
-        generated_child_queries.forEach(ele => this._add_query(ele));
         //generated_child_queries.forEach(ele => this._debug(quickprint(ele)))
 
         generated_child_queries.forEach(ele => ele.run(false));

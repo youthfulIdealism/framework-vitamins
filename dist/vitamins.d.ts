@@ -68,6 +68,7 @@ export declare class Vitamins {
     all_queries: Map<string, Query>;
     queries_by_collection: Map<string, Set<Query>>;
     debug_on: boolean;
+    _rewalking_queries: Set<string>;
     constructor(vue: App | any);
     document<DOC extends generated_document_interface<result>>(document: DOC, ...generators: child_generator<Infer_Collection_Returntype<DOC>>[]): Query;
     query<COL extends generated_collection_interface<result>>(collection: COL, query_parameters: any, ...generators: child_generator<Infer_Collection_Returntype<COL>>[]): Query;

@@ -215,4 +215,106 @@ describe('Bug Regressions', function () {
             query_3.unlisten();
             assert.equal(query_1.query.parents.size, 0);
         });
+
+        it(`reciprocal child generators between two collections should not recurse infinitely`, async function () {
+            let institution = gen_institution('test institution')
+            let client_1 = gen_client(institution, 'test client 1')
+            let project_1 = gen_project(institution, client_1, 'test project')
+            let {
+                vue,
+                api
+            } = get_setup(database(institution), database(client_1), database(project_1));
+            let clients = api.collection('institution').document(institution._id).collection('client') as Client;
+            let projects = api.collection('institution').document(institution._id).collection('project') as Project;
+
+            let vitamins = new Vitamins(vue);
+
+            // client -> projects for that client
+            await vitamins.query(clients, {},
+                (client) => vitamins.query(projects, { client_id: client._id })
+            ).run();
+            await sleep(20);
+
+            // project -> the client it references
+            await vitamins.query(projects, {},
+                (project) => vitamins.document(clients.document(project.client_id))
+            ).run();
+            await sleep(20);
+
+            assert.deepEqual(vue.clients.get(client_1._id), client_1)
+            assert.deepEqual(vue.projects.get(project_1._id), project_1)
+            // a runaway recursion leaves thousands of generated queries behind
+            assert.ok(vitamins.all_queries.size < 20, `expected a bounded number of queries, found ${vitamins.all_queries.size}`)
+        });
+
+        it(`a generated query that duplicates an existing query should be replaced by it, not left behind`, async function () {
+            let institution_1 = gen_institution('test institution 1')
+            let institution_2 = gen_institution('test institution 2')
+            let client_1 = gen_client(institution_1, 'test client 1')
+            let {
+                vue,
+                api
+            } = get_setup(database(institution_1, institution_2), database(client_1));
+
+            let vitamins = new Vitamins(vue);
+
+            // a top-level query, so that the generated query below is a duplicate of it
+            let top = await vitamins.query(api.collection('institution'), { _id: institution_1._id }).run();
+            await sleep(20);
+
+            let query = await vitamins.document(api.collection('institution').document('*').collection('client').document(client_1._id),
+                (client) => vitamins.query(api.collection('institution'), { _id: client.institution_id })
+            ).run();
+            await sleep(20);
+
+            // the duplicate should have been swapped out for the existing query
+            assert.equal(vitamins.queries_by_collection.get('institution')!.size, 1);
+            assert.ok(vitamins.documents.get(client_1._id)!.children.has(top.query.id));
+
+            // once the client moves and the top-level listener goes away, nothing should hold institution_1
+            client_1.institution_id = institution_2._id;
+            await query.rerun();
+            await sleep(20);
+            top.unlisten();
+
+            let test_against = gen_vue();
+            test_against.institutions.set(institution_2._id, structuredClone(institution_2));
+            test_against.clients.set(client_1._id, structuredClone(client_1));
+            assert.deepEqual(vue, test_against);
+            assert.equal(vitamins.queries_by_collection.get('institution')!.size, 1);
+        });
+
+        it(`reciprocal child generators with inline generators should not recurse infinitely`, async function () {
+            let institution = gen_institution('test institution')
+            let client_1 = gen_client(institution, 'test client 1')
+            let project_1 = gen_project(institution, client_1, 'test project')
+            let {
+                vue,
+                api
+            } = get_setup(database(institution), database(client_1), database(project_1));
+            let clients = api.collection('institution').document(institution._id).collection('client') as Client;
+            let projects = api.collection('institution').document(institution._id).collection('project') as Project;
+
+            let vitamins = new Vitamins(vue);
+
+            // each generator creates a fresh closure every time it runs, so the deduper always sees "new" generators
+            await vitamins.query(clients, {},
+                (client) => vitamins.query(projects, { client_id: client._id },
+                    (project) => vitamins.document(clients.document(project.client_id))
+                )
+            ).run();
+            await sleep(20);
+
+            await vitamins.query(projects, {},
+                (project) => vitamins.document(clients.document(project.client_id),
+                    (client) => vitamins.query(projects, { client_id: client._id })
+                )
+            ).run();
+            await sleep(20);
+
+            assert.deepEqual(vue.clients.get(client_1._id), client_1)
+            assert.deepEqual(vue.projects.get(project_1._id), project_1)
+            // a runaway recursion leaves thousands of generated queries behind
+            assert.ok(vitamins.all_queries.size < 20, `expected a bounded number of queries, found ${vitamins.all_queries.size}`)
+        });
 });

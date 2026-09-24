@@ -82,21 +82,35 @@ class Query {
         if (self.id !== this.id) {
             for (let parent_id of this.parents) {
                 self.parents.add(parent_id);
+                let document = vitamins.documents.get(parent_id);
+                if (document?.children.delete(this.id)) {
+                    document.children.add(self.id);
+                }
             }
+            this.parents.clear();
+            vitamins._delete_query(this);
             let new_child_generators = this.child_generators.filter(ele => !self.child_generators.includes(ele));
             for (let generator of new_child_generators) {
                 vitamins._debug(`ADDING CHILD GENERATOR`);
                 vitamins._debug(generator);
                 self.child_generators.push(generator);
             }
-            for (let child_id of self.children) {
-                let document = vitamins.documents.get(child_id);
-                if (!document) {
-                    continue;
+            if (new_child_generators.length > 0 && !vitamins._rewalking_queries.has(self.id)) {
+                vitamins._rewalking_queries.add(self.id);
+                try {
+                    for (let child_id of Array.from(self.children)) {
+                        let document = vitamins.documents.get(child_id);
+                        if (!document) {
+                            continue;
+                        }
+                        let generated_child_queries = new_child_generators.map(generator => generator(document.document)).filter(ele => ele);
+                        generated_child_queries.forEach(ele => ele.link_parent(document));
+                        generated_child_queries.forEach(ele => ele.run(false));
+                    }
                 }
-                let generated_child_queries = vitamins._generate_child_queries(document);
-                generated_child_queries.forEach(ele => vitamins._add_query(ele));
-                generated_child_queries.forEach(ele => ele.run(false));
+                finally {
+                    vitamins._rewalking_queries.delete(self.id);
+                }
             }
         }
         else {
@@ -270,12 +284,14 @@ export class Vitamins {
     all_queries;
     queries_by_collection;
     debug_on;
+    _rewalking_queries;
     constructor(vue) {
         this.vue = vue;
         this.documents = new Map();
         this.queries_by_collection = new Map();
         this.all_queries = new Map();
         this.debug_on = false;
+        this._rewalking_queries = new Set();
     }
     document(document, ...generators) {
         if (!this.queries_by_collection.has(document.collection_id)) {
@@ -371,7 +387,6 @@ export class Vitamins {
             this.all_queries.get(child_query_id).unlink_parent(document.id);
         }
         let generated_child_queries = this._generate_child_queries(document);
-        generated_child_queries.forEach(ele => this._add_query(ele));
         generated_child_queries.forEach(ele => ele.run(false));
         let test_queries_for_deletion = document_previous_children.map(query_id => this.all_queries.get(query_id));
         let bugfind = Array.from(document_previous_children).filter(id => !this.all_queries.has(id));
