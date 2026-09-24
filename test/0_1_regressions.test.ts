@@ -269,7 +269,7 @@ describe('Bug Regressions', function () {
 
             // the duplicate should have been swapped out for the existing query
             assert.equal(vitamins.queries_by_collection.get('institution')!.size, 1);
-            assert.ok(vitamins.documents.get(client_1._id)!.children.has(top.query.id));
+            assert.ok(Array.from(vitamins.documents.get(client_1._id)!.links.values()).some(link => link.query === top.query));
 
             // once the client moves and the top-level listener goes away, nothing should hold institution_1
             client_1.institution_id = institution_2._id;
@@ -282,6 +282,220 @@ describe('Bug Regressions', function () {
             test_against.clients.set(client_1._id, structuredClone(client_1));
             assert.deepEqual(vue, test_against);
             assert.equal(vitamins.queries_by_collection.get('institution')!.size, 1);
+        });
+
+        it(`inline generators should not pile up when their parent document updates`, async function () {
+            let institution = gen_institution('test institution')
+            let client_1 = gen_client(institution, 'test client 1')
+            let project_1 = gen_project(institution, client_1, 'test project')
+            let {
+                vue,
+                api
+            } = get_setup(database(institution), database(client_1), database(project_1));
+            let clients = api.collection('institution').document(institution._id).collection('client') as Client;
+            let projects = api.collection('institution').document(institution._id).collection('project') as Project;
+
+            let vitamins = new Vitamins(vue);
+
+            // two levels of inline generators, each a fresh closure every time its parent generator runs
+            await vitamins.query(clients, {},
+                (client) => vitamins.query(projects, { client_id: client._id },
+                    (project) => vitamins.document(clients.document(project.client_id),
+                        () => undefined
+                    )
+                )
+            ).run();
+            await sleep(20);
+
+            let project_query = Array.from(vitamins.queries_by_collection.get('project')!)[0];
+            let client_get_query = Array.from(vitamins.queries_by_collection.get('client')!).find(ele => ele.operation === 'get')!;
+            assert.equal(project_query.generators.size, 1);
+            assert.equal(client_get_query.generators.size, 1);
+
+            for(let q = 0; q < 5; q++){
+                vitamins.update_document_from_external(client_1._id, Object.assign(structuredClone(client_1), { name: `renamed client ${q}` }));
+                await sleep(20);
+            }
+
+            assert.equal(project_query.generators.size, 1);
+            assert.equal(client_get_query.generators.size, 1);
+            assert.equal(vue.clients.get(client_1._id).name, 'renamed client 4');
+        });
+
+        it(`mutually recursive shared generators should not grow as documents update`, async function () {
+            let institution = gen_institution('test institution')
+            let client_1 = gen_client(institution, 'test client 1')
+            let project_1 = gen_project(institution, client_1, 'test project')
+            let {
+                vue,
+                api
+            } = get_setup(database(institution), database(client_1), database(project_1));
+            let clients = api.collection('institution').document(institution._id).collection('client') as Client;
+            let projects = api.collection('institution').document(institution._id).collection('project') as Project;
+
+            let vitamins = new Vitamins(vue);
+
+            let project_generator: (project: any) => any;
+            let client_generator = (client: any) => vitamins.query(projects, { client_id: client._id }, project_generator);
+            project_generator = (project: any) => vitamins.document(clients.document(project.client_id), client_generator);
+
+            await vitamins.query(clients, {}, client_generator).run();
+            await sleep(20);
+
+            function count() {
+                let queries = Array.from(vitamins.all_queries.values());
+                return {
+                    queries: queries.length,
+                    generators: queries.reduce((sum, ele) => sum + ele.generators.size, 0),
+                    links: Array.from(vitamins.documents.values()).reduce((sum, ele) => sum + ele.links.size, 0),
+                };
+            }
+            let before = count();
+
+            for(let q = 0; q < 5; q++){
+                vitamins.update_document_from_external(client_1._id, Object.assign(structuredClone(client_1), { name: `renamed client ${q}` }));
+                vitamins.update_document_from_external(project_1._id, Object.assign(structuredClone(project_1), { name: `renamed project ${q}` }));
+                await sleep(20);
+            }
+
+            assert.deepEqual(count(), before);
+        });
+
+        it(`unlistening a root should remove the generators it contributed to a shared query`, async function () {
+            let institution = gen_institution('test institution')
+            let client_1 = gen_client(institution, 'test client 1')
+            let project_1 = gen_project(institution, client_1, 'test project')
+            let {
+                vue,
+                api
+            } = get_setup(database(institution), database(client_1), database(project_1));
+            let clients = api.collection('institution').document(institution._id).collection('client') as Client;
+            let projects = api.collection('institution').document(institution._id).collection('project') as Project;
+
+            let vitamins = new Vitamins(vue);
+
+            let generator_1 = (project: any) => vitamins.document(clients.document(project.client_id));
+            let generator_2 = (project: any) => vitamins.document(api.collection('institution').document(project.institution_id));
+
+            let query_1 = await vitamins.query(projects, {}, generator_1).run();
+            await sleep(20);
+            let query_2 = await vitamins.query(projects, {}, generator_2).run();
+            await sleep(20);
+
+            assert.equal(query_1.query.id, query_2.query.id);
+            assert.equal(query_1.query.generators.size, 2);
+
+            query_1.unlisten();
+            assert.equal(query_2.query.generators.size, 1);
+            assert.ok(query_2.query.generators.has(generator_2));
+
+            // what only generator_1 loaded should be gone, what generator_2 loaded should remain
+            assert.ok(!vue.clients.has(client_1._id));
+            assert.ok(vue.institutions.has(institution._id));
+            assert.ok(vue.projects.has(project_1._id));
+        });
+
+        it(`a nested generator's output should be dropped when the parent data it closed over changes`, async function () {
+            let institution_1 = gen_institution('test institution 1')
+            let institution_2 = gen_institution('test institution 2')
+            let client_1 = gen_client(institution_1, 'test client 1')
+            let project_1 = gen_project(institution_1, client_1, 'test project')
+            let {
+                vue,
+                api
+            } = get_setup(database(institution_1, institution_2), database(client_1), database(project_1));
+            let institutions = api.collection('institution') as Institution;
+            let clients = institutions.document(institution_1._id).collection('client') as Client;
+            let projects = institutions.document(institution_1._id).collection('project') as Project;
+
+            let vitamins = new Vitamins(vue);
+
+            // the innermost generator closes over the client, not the project it's called with
+            await vitamins.query(clients, {},
+                (client) => vitamins.query(projects, { client_id: client._id },
+                    () => vitamins.document(institutions.document(client.institution_id))
+                )
+            ).run();
+            await sleep(20);
+            assert.ok(vue.institutions.has(institution_1._id));
+            let fetches = institutions.meta_counter.get(institution_1._id);
+
+            // an unrelated change produces the same queries, which should survive rather than be refetched
+            let renamed_client = Object.assign(structuredClone(client_1), { name: 'renamed client' });
+            vitamins.update_document_from_external(client_1._id, renamed_client);
+            await sleep(20);
+            assert.ok(vue.institutions.has(institution_1._id));
+            assert.equal(institutions.meta_counter.get(institution_1._id), fetches);
+
+            // changing what the closure captured should swap the institution it loaded
+            let moved_client = Object.assign(structuredClone(renamed_client), { institution_id: institution_2._id });
+            vitamins.update_document_from_external(client_1._id, moved_client);
+            await sleep(20);
+
+            let test_against = gen_vue();
+            test_against.institutions.set(institution_2._id, structuredClone(institution_2));
+            test_against.clients.set(client_1._id, structuredClone(moved_client));
+            test_against.projects.set(project_1._id, structuredClone(project_1));
+            assert.deepEqual(vue, test_against);
+        });
+
+        it(`unlistening both roots of reciprocal generators should clean up the cycle between them`, async function () {
+            let institution = gen_institution('test institution')
+            let client_1 = gen_client(institution, 'test client 1')
+            let project_1 = gen_project(institution, client_1, 'test project')
+            let {
+                vue,
+                api
+            } = get_setup(database(institution), database(client_1), database(project_1));
+            let clients = api.collection('institution').document(institution._id).collection('client') as Client;
+            let projects = api.collection('institution').document(institution._id).collection('project') as Project;
+
+            let vitamins = new Vitamins(vue);
+
+            let query_1 = await vitamins.query(clients, {},
+                (client) => vitamins.query(projects, { client_id: client._id })
+            ).run();
+            await sleep(20);
+            let query_2 = await vitamins.query(projects, {},
+                (project) => vitamins.document(clients.document(project.client_id))
+            ).run();
+            await sleep(20);
+
+            query_1.unlisten();
+            query_2.unlisten();
+
+            assert.deepEqual(vue, gen_vue());
+            assert.equal(vitamins.all_queries.size, 0);
+            assert.equal(vitamins.documents.size, 0);
+        });
+
+        it(`unlistening the root of mutually recursive generators should clean up the cycle they form`, async function () {
+            let institution = gen_institution('test institution')
+            let client_1 = gen_client(institution, 'test client 1')
+            let project_1 = gen_project(institution, client_1, 'test project')
+            let {
+                vue,
+                api
+            } = get_setup(database(institution), database(client_1), database(project_1));
+            let clients = api.collection('institution').document(institution._id).collection('client') as Client;
+            let projects = api.collection('institution').document(institution._id).collection('project') as Project;
+
+            let vitamins = new Vitamins(vue);
+
+            // the generators holding the cycle together are contributed from inside the cycle
+            let project_generator: (project: any) => any;
+            let client_generator = (client: any) => vitamins.query(projects, { client_id: client._id }, project_generator);
+            project_generator = (project: any) => vitamins.document(clients.document(project.client_id), client_generator);
+
+            let query = await vitamins.query(clients, {}, client_generator).run();
+            await sleep(20);
+            assert.ok(vue.projects.has(project_1._id));
+
+            query.unlisten();
+
+            assert.deepEqual(vue, gen_vue());
+            assert.equal(vitamins.all_queries.size, 0);
+            assert.equal(vitamins.documents.size, 0);
         });
 
         it(`reciprocal child generators with inline generators should not recurse infinitely`, async function () {
@@ -298,14 +512,14 @@ describe('Bug Regressions', function () {
             let vitamins = new Vitamins(vue);
 
             // each generator creates a fresh closure every time it runs, so the deduper always sees "new" generators
-            await vitamins.query(clients, {},
+            let query_1 = await vitamins.query(clients, {},
                 (client) => vitamins.query(projects, { client_id: client._id },
                     (project) => vitamins.document(clients.document(project.client_id))
                 )
             ).run();
             await sleep(20);
 
-            await vitamins.query(projects, {},
+            let query_2 = await vitamins.query(projects, {},
                 (project) => vitamins.document(clients.document(project.client_id),
                     (client) => vitamins.query(projects, { client_id: client._id })
                 )
@@ -316,5 +530,12 @@ describe('Bug Regressions', function () {
             assert.deepEqual(vue.projects.get(project_1._id), project_1)
             // a runaway recursion leaves thousands of generated queries behind
             assert.ok(vitamins.all_queries.size < 20, `expected a bounded number of queries, found ${vitamins.all_queries.size}`)
+
+            // and once nothing is listening, none of it should survive
+            query_1.unlisten();
+            query_2.unlisten();
+            assert.deepEqual(vue, gen_vue());
+            assert.equal(vitamins.all_queries.size, 0);
+            assert.equal(vitamins.documents.size, 0);
         });
 });

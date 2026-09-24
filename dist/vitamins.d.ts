@@ -1,58 +1,67 @@
 import { App } from 'vue';
 import { generated_collection_interface, generated_document_interface, Infer_Collection_Returntype, result } from './type_generated_collection.js';
 type query_operation = "get" | "query";
-type child_generator<T extends result> = (result: T) => Query | undefined;
+type query_reference = generated_collection_interface<result> | generated_document_interface<result>;
+type child_generator<T extends result> = (result: T) => QuerySpec | undefined;
 declare class Document {
     id: string;
     vitamins: Vitamins;
-    children: Set<string>;
-    parents: Set<string>;
+    parents: Set<Query>;
+    links: Map<Generator, Link>;
     reference: generated_collection_interface<result> | generated_document_interface<result>;
     document: result;
-    constructor(vitamins: Vitamins, reference: generated_collection_interface<result> | generated_document_interface<result>, document: result);
-    unlink_parent(id: string): void;
+    constructor(vitamins: Vitamins, reference: generated_document_interface<result>, document: result);
 }
-declare class Query {
-    #private;
-    id: string;
-    vitamins: Vitamins;
-    children: Set<string>;
-    parents: Set<string>;
-    reference: generated_collection_interface<result> | generated_document_interface<result>;
+declare class Generator {
+    parent_query: Query;
+    generator_function: child_generator<result>;
+    sources: Set<Link>;
+    links: Set<Link>;
+    constructor(parent_query: Query, generator_function: child_generator<result>);
+}
+declare class Link {
+    document?: Document;
+    generator?: Generator;
+    query?: Query;
+    contributed: Set<Generator>;
+    pass: number;
+    constructor(document?: Document, generator?: Generator);
+}
+declare class QueryShape {
+    reference: query_reference;
     collection_path: string;
     operation: query_operation;
     document_id?: string;
     query_parameters?: any;
+    constructor(reference: query_reference, argument?: object);
+    equals(query: QueryShape): boolean;
+}
+declare class QuerySpec extends QueryShape {
+    vitamins: Vitamins;
     child_generators: child_generator<result>[];
-    has_run: boolean;
-    run_wait?: Promise<boolean>;
-    last_result?: result;
-    constructor(vitamins: Vitamins, reference: generated_collection_interface<result> | generated_document_interface<result>, argument?: object, child_generators?: child_generator<result>[]);
-    rerun(): Promise<void>;
+    constructor(vitamins: Vitamins, reference: query_reference, argument?: object, child_generators?: child_generator<result>[]);
     run(): Promise<{
         query: Query;
         get_results: Query['get_results'];
         rerun: Query['rerun'];
         unlisten: () => void;
     }>;
-    run(run_from_root: true): Promise<{
-        query: Query;
-        get_results: Query['get_results'];
-        rerun: Query['rerun'];
-        unlisten: () => void;
-    }>;
-    run(run_from_root: false): Promise<{
-        query: Query;
-        get_results: Query['get_results'];
-        rerun: Query['rerun'];
-    }>;
+}
+declare class Query extends QueryShape {
+    #private;
+    id: string;
+    vitamins: Vitamins;
+    documents: Set<Document>;
+    parents: Set<Link>;
+    generators: Map<child_generator<result>, Generator>;
+    external_root?: Link;
+    has_run: boolean;
+    run_wait?: Promise<boolean>;
+    last_result?: result;
+    constructor(vitamins: Vitamins, shape: QueryShape);
+    rerun(): Promise<void>;
     _fetch(): Promise<never>;
-    link_child(document: Document): void;
-    link_parent(document: Document): void;
-    unlink_child(id: string): void;
-    unlink_parent(id: string): void;
-    equals(query: Query): boolean;
-    clone(): Query;
+    clone(): QuerySpec;
     next_page(): Promise<{
         query: Query;
         get_results: Query["get_results"];
@@ -60,7 +69,7 @@ declare class Query {
         unlisten: () => void;
     }>;
     get_results<T>(): Promise<T[]>;
-    static find_query(queries: Query[], target: Query): Query;
+    static find_query(queries: Query[], target: QueryShape): Query;
 }
 export declare class Vitamins {
     vue: App | any;
@@ -68,21 +77,29 @@ export declare class Vitamins {
     all_queries: Map<string, Query>;
     queries_by_collection: Map<string, Set<Query>>;
     debug_on: boolean;
-    _rewalking_queries: Set<string>;
+    roots: Set<Link>;
+    _rewalking_queries: Set<Query>;
+    _pass: number;
     constructor(vue: App | any);
-    document<DOC extends generated_document_interface<result>>(document: DOC, ...generators: child_generator<Infer_Collection_Returntype<DOC>>[]): Query;
-    query<COL extends generated_collection_interface<result>>(collection: COL, query_parameters: any, ...generators: child_generator<Infer_Collection_Returntype<COL>>[]): Query;
-    unlisten_query(query: Query, root_id: string): void;
+    document<DOC extends generated_document_interface<result>>(document: DOC, ...generators: child_generator<Infer_Collection_Returntype<DOC>>[]): QuerySpec;
+    query<COL extends generated_collection_interface<result>>(collection: COL, query_parameters: any, ...generators: child_generator<Infer_Collection_Returntype<COL>>[]): QuerySpec;
+    unlisten_query(root: Link): void;
     add_document_from_external<Document extends generated_document_interface<result>>(collection: Document, data: result): void;
     delete_document_from_external(document_id: string): void;
     update_document_from_external(document_id: string, data: result): void;
     _debug(...print: any[]): void;
-    _find_existing_query(query: Query): Query;
+    _find_existing_query(query: QueryShape): Query;
     _add_query(query: Query): void;
     _delete_query(query: Query): void;
     _add_document(document: Document): void;
-    _update_data(reference: generated_collection_interface<result> | generated_document_interface<result> | undefined, document_id: string, data: result, query?: Query): void;
-    _generate_child_queries(document: Document): Query[];
-    _cleanup(queries: Query[], documents: Document[]): void;
+    _resolve(spec: QuerySpec, link: Link): {
+        query: Query;
+        fetch?: Promise<void>;
+    };
+    _set_contributed(link: Link, fns: child_generator<result>[]): Generator[];
+    _apply_generator(document: Document, generator: Generator): void;
+    _remove_link(link: Link): void;
+    _update_data(reference: generated_collection_interface<result> | generated_document_interface<result> | undefined, document_id: string, data: result, query?: Query, collect_garbage?: boolean): void;
+    _collect_garbage(): void;
 }
 export {};
