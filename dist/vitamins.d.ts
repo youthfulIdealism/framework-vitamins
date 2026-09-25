@@ -24,7 +24,6 @@ declare class Link {
     generator?: Generator;
     query?: Query;
     contributed: Set<Generator>;
-    pass: number;
     constructor(document?: Document, generator?: Generator);
 }
 declare class QueryShape {
@@ -78,8 +77,6 @@ export declare class Vitamins {
     queries_by_collection: Map<string, Set<Query>>;
     debug_on: boolean;
     roots: Set<Link>;
-    _rewalking_queries: Set<Query>;
-    _pass: number;
     constructor(vue: App | any);
     document<DOC extends generated_document_interface<result>>(document: DOC, ...generators: child_generator<Infer_Collection_Returntype<DOC>>[]): QuerySpec;
     query<COL extends generated_collection_interface<result>>(collection: COL, query_parameters: any, ...generators: child_generator<Infer_Collection_Returntype<COL>>[]): QuerySpec;
@@ -92,12 +89,12 @@ export declare class Vitamins {
     _add_query(query: Query): void;
     _delete_query(query: Query): void;
     _add_document(document: Document): void;
-    _resolve(spec: QuerySpec, link: Link): {
+    _resolve_query(spec: QuerySpec, link: Link, rewalking?: ReadonlySet<Query>): {
         query: Query;
         fetch?: Promise<void>;
     };
-    _set_contributed(link: Link, fns: child_generator<result>[]): Generator[];
-    _apply_generator(document: Document, generator: Generator): void;
+    _set_generators_contributed_by_link(link: Link, generator_functions: child_generator<result>[]): Generator[];
+    _run_generator(document: Document, generator: Generator, rewalking?: ReadonlySet<Query>): Link;
     _remove_link(link: Link): void;
     _update_data(reference: generated_collection_interface<result> | generated_document_interface<result> | undefined, document_id: string, data: result, query?: Query, collect_garbage?: boolean): void;
     _collect_garbage(): void;

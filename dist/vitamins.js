@@ -33,12 +33,10 @@ class Link {
     generator;
     query;
     contributed;
-    pass;
     constructor(document, generator) {
         this.document = document;
         this.generator = generator;
         this.contributed = new Set();
-        this.pass = 0;
     }
 }
 class QueryShape {
@@ -97,9 +95,9 @@ class QuerySpec extends QueryShape {
     async run() {
         let vitamins = this.vitamins;
         vitamins._debug(`running ${this.reference.collection_id}`);
-        let root = new Link();
-        vitamins.roots.add(root);
-        let { query, fetch } = vitamins._resolve(this, root);
+        let root_link = new Link();
+        vitamins.roots.add(root_link);
+        let { query, fetch } = vitamins._resolve_query(this, root_link);
         if (fetch) {
             await fetch;
         }
@@ -111,7 +109,7 @@ class QuerySpec extends QueryShape {
             get_results: query.get_results.bind(query),
             rerun: query.rerun.bind(query),
             unlisten: () => {
-                vitamins.unlisten_query(root);
+                vitamins.unlisten_query(root_link);
             }
         };
     }
@@ -264,8 +262,6 @@ export class Vitamins {
     queries_by_collection;
     debug_on;
     roots;
-    _rewalking_queries;
-    _pass;
     constructor(vue) {
         this.vue = vue;
         this.documents = new Map();
@@ -273,8 +269,6 @@ export class Vitamins {
         this.all_queries = new Map();
         this.debug_on = false;
         this.roots = new Set();
-        this._rewalking_queries = new Set();
-        this._pass = 0;
     }
     document(document, ...generators) {
         return new QuerySpec(this, document, undefined, generators);
@@ -346,7 +340,7 @@ export class Vitamins {
     _add_document(document) {
         this.documents.set(document.document._id, document);
     }
-    _resolve(spec, link) {
+    _resolve_query(spec, link, rewalking = new Set()) {
         let self = this._find_existing_query(spec);
         let is_new = !self;
         if (!self) {
@@ -359,45 +353,40 @@ export class Vitamins {
         if (link.query !== self) {
             if (link.query) {
                 link.query.parents.delete(link);
-                this._set_contributed(link, []);
+                this._set_generators_contributed_by_link(link, []);
             }
             link.query = self;
             self.parents.add(link);
         }
-        let added = this._set_contributed(link, spec.child_generators);
+        let added_generators = this._set_generators_contributed_by_link(link, spec.child_generators);
         if (is_new) {
             return { query: self, fetch: self._fetch() };
         }
-        if (added.length > 0 && !this._rewalking_queries.has(self)) {
-            this._rewalking_queries.add(self);
-            try {
-                for (let document of Array.from(self.documents)) {
-                    for (let generator of added) {
-                        this._apply_generator(document, generator);
-                    }
+        if (added_generators.length > 0 && !rewalking.has(self)) {
+            let rewalking_self = new Set(rewalking).add(self);
+            for (let document of Array.from(self.documents)) {
+                for (let generator of added_generators) {
+                    this._run_generator(document, generator, rewalking_self);
                 }
-            }
-            finally {
-                this._rewalking_queries.delete(self);
             }
         }
         return { query: self };
     }
-    _set_contributed(link, fns) {
+    _set_generators_contributed_by_link(link, generator_functions) {
         let added = [];
         for (let generator of Array.from(link.contributed)) {
-            if (fns.includes(generator.generator_function)) {
+            if (generator_functions.includes(generator.generator_function)) {
                 continue;
             }
             link.contributed.delete(generator);
             generator.sources.delete(link);
         }
         let query = link.query;
-        for (let fn of fns) {
-            let generator = query.generators.get(fn);
+        for (let generator_function of generator_functions) {
+            let generator = query.generators.get(generator_function);
             if (!generator) {
-                generator = new Generator(query, fn);
-                query.generators.set(fn, generator);
+                generator = new Generator(query, generator_function);
+                query.generators.set(generator_function, generator);
                 added.push(generator);
             }
             generator.sources.add(link);
@@ -405,22 +394,22 @@ export class Vitamins {
         }
         return added;
     }
-    _apply_generator(document, generator) {
+    _run_generator(document, generator, rewalking = new Set()) {
         let child_query = generator.generator_function(document.document);
         let link = document.links.get(generator);
         if (!child_query) {
             if (link) {
                 this._remove_link(link);
             }
-            return;
+            return undefined;
         }
         if (!link) {
             link = new Link(document, generator);
             document.links.set(generator, link);
             generator.links.add(link);
         }
-        link.pass = this._pass;
-        this._resolve(child_query, link);
+        this._resolve_query(child_query, link, rewalking);
+        return link;
     }
     _remove_link(link) {
         if (link.document && link.generator) {
@@ -444,22 +433,26 @@ export class Vitamins {
             this._add_document(document);
         }
         this._debug(`updating data for a ${document.reference.collection_id} ${document_id}`);
-        let pass = ++this._pass;
         document.document = data;
         if (query) {
             query.documents.add(document);
             document.parents.add(query);
         }
+        let previous_links = new Set(document.links.values());
+        let refreshed_links = new Set();
         for (let parent_query of Array.from(document.parents)) {
             for (let generator of Array.from(parent_query.generators.values())) {
                 if (generator.sources.size === 0) {
                     continue;
                 }
-                this._apply_generator(document, generator);
+                let link = this._run_generator(document, generator);
+                if (link) {
+                    refreshed_links.add(link);
+                }
             }
         }
-        for (let link of Array.from(document.links.values())) {
-            if (link.pass !== pass) {
+        for (let link of previous_links) {
+            if (!refreshed_links.has(link)) {
                 this._remove_link(link);
             }
         }
