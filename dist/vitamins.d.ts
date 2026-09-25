@@ -1,5 +1,5 @@
 import { App } from 'vue';
-import { generated_collection_interface, generated_document_interface, Infer_Collection_Returntype, result } from './type_generated_collection.js';
+import { generated_collection_interface, generated_document_interface, Infer_Collection_Returntype, Infer_Query_Parameters, result } from './type_generated_collection.js';
 type query_operation = "get" | "query";
 type query_reference = generated_collection_interface<result> | generated_document_interface<result>;
 type child_generator<T extends result> = (result: T) => QuerySpec | undefined;
@@ -81,7 +81,7 @@ export declare class Vitamins {
     _garbage_collection_scheduled: boolean;
     constructor(vue: App | any);
     document<DOC extends generated_document_interface<result>>(document: DOC, ...generators: child_generator<Infer_Collection_Returntype<DOC>>[]): QuerySpec;
-    query<COL extends generated_collection_interface<result>>(collection: COL, query_parameters: any, ...generators: child_generator<Infer_Collection_Returntype<COL>>[]): QuerySpec;
+    query<COL extends generated_collection_interface<result>>(collection: COL, query_parameters: Infer_Query_Parameters<COL>, ...generators: child_generator<Infer_Collection_Returntype<COL>>[]): QuerySpec;
     unlisten_query(root: Link): void;
     add_document_from_external<Document extends generated_document_interface<result>>(collection: Document, data: result): void;
     delete_document_from_external(document_id: string): void;

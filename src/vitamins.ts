@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid'
 import { App, computed, Ref } from 'vue'
-import { generated_collection_interface, generated_document_interface, Infer_Collection_Returntype, result } from './type_generated_collection.js'
+import { generated_collection_interface, generated_document_interface, Infer_Collection_Returntype, Infer_Query_Parameters, result } from './type_generated_collection.js'
 import { deep_equal } from './deep_equals.js';
 import { resolve } from 'path';
 
@@ -323,7 +323,7 @@ export class Vitamins {
         return new QuerySpec(this, document, undefined, generators as child_generator<result>[]);
     }
 
-    query<COL extends generated_collection_interface<result>>(collection: COL, query_parameters: any, ...generators: child_generator<Infer_Collection_Returntype<COL>>[]): QuerySpec {
+    query<COL extends generated_collection_interface<result>>(collection: COL, query_parameters: Infer_Query_Parameters<COL>, ...generators: child_generator<Infer_Collection_Returntype<COL>>[]): QuerySpec {
         return new QuerySpec(this, collection, query_parameters ?? {}, generators as child_generator<result>[]);
     }
 
