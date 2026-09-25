@@ -23,7 +23,9 @@ type child_generator<T extends result> = (result: T) => QuerySpec | undefined;
     at, so a generator lives only as long as something still contributes it.
 
     Nothing is reference counted. After each top-level operation, _collect_garbage() marks everything
-    reachable from the roots and deletes the rest, which also collects cycles.
+    reachable from the roots and deletes the rest, which also collects cycles. Adding to the graph never
+    creates garbage, so collection is skipped unless something was removed since the last one, and
+    collections triggered by fetches are batched into one per microtask.
 
     vitamins.query(), vitamins.document(), and generators return a QuerySpec, which describes a query but
     isn't part of the graph. Running or generating it resolves it to a Query node: a new one, or an existing
@@ -212,8 +214,9 @@ class Query extends QueryShape {
                 // TODO: how do I want to handle errors? This clearly needs to be in a try-catch.
                 let result = await reference.get();
                 if(result){
-                    this.vitamins._update_data(reference, result._id, result, this);
+                    this.vitamins._update_data(reference, result._id, result, this, false);
                 }
+                this.vitamins._schedule_garbage_collection();
             } else if(this.operation === 'query'){
                 let reference = this.reference as generated_collection_interface<result>;
                 // TODO: how do I want to handle errors? This clearly needs to be in a try-catch.
@@ -222,7 +225,7 @@ class Query extends QueryShape {
                     this.vitamins._update_data(reference, result._id, result, this, false);
                 }
                 // collect garbage once for the whole batch, not once per document
-                this.vitamins._collect_garbage();
+                this.vitamins._schedule_garbage_collection();
                 if(results.length > 0){ this.last_result = results[results.length - 1]; }
             }
         } catch(err){
@@ -301,6 +304,8 @@ export class Vitamins {
     queries_by_collection: Map<string, Set<Query>>// collection id -> document[]
     debug_on: boolean;
     roots: Set<Link> // what garbage collection marks from
+    _garbage_possible: boolean // set when something is removed from the graph, cleared by collection
+    _garbage_collection_scheduled: boolean
 
     constructor(vue: App | any) {
         this.vue = vue;
@@ -309,6 +314,8 @@ export class Vitamins {
         this.all_queries = new Map()
         this.debug_on = false;
         this.roots = new Set();
+        this._garbage_possible = false;
+        this._garbage_collection_scheduled = false;
     }
 
     document<DOC extends generated_document_interface<result>>(document: DOC, ...generators: child_generator<Infer_Collection_Returntype<DOC>>[]): QuerySpec {
@@ -354,6 +361,12 @@ export class Vitamins {
             query.documents.delete(document);
         }
         document.parents.clear();
+        this._garbage_possible = true;
+        this._collect_garbage();
+    }
+
+    // deletes anything no longer reachable right away, rather than waiting for a scheduled collection
+    collect_garbage() {
         this._collect_garbage();
     }
 
@@ -418,6 +431,7 @@ export class Vitamins {
             if(link.query) {
                 link.query.parents.delete(link);
                 this._set_generators_contributed_by_link(link, []);
+                this._garbage_possible = true;
             }
             link.query = self;
             self.parents.add(link);
@@ -457,6 +471,7 @@ export class Vitamins {
             if(generator_functions.includes(generator.generator_function)) { continue; }
             link.contributed.delete(generator);
             generator.sources.delete(link);
+            this._garbage_possible = true;
         }
 
         // for each generator,...
@@ -508,10 +523,15 @@ export class Vitamins {
         }
         link.contributed.clear();
         this.roots.delete(link);
+        this._garbage_possible = true;
     }
 
     // TODO: do I need to be accepting an array of documents so that I can link/unlink all of them?
     _update_data(reference: generated_collection_interface<result> | generated_document_interface<result> | undefined, document_id: string, data: result, query?: Query, collect_garbage: boolean = true) {
+        // a fetch can finish after its query was collected. Its results aren't wanted, and loading them
+        // would add garbage without anything having been removed, so the next collection would skip it.
+        if(query && this.all_queries.get(query.id) !== query) { return; }
+
         // if this document doesn't already exist, create it.
         let document = this.documents.get(document_id);
         if(!document) {
@@ -567,6 +587,17 @@ export class Vitamins {
         if(collect_garbage) { this._collect_garbage(); }
     }
 
+    // collects garbage once all the fetches finishing in the current microtask have loaded their results.
+    // This still runs before whoever awaited those fetches resumes.
+    _schedule_garbage_collection() {
+        if(this._garbage_collection_scheduled) { return; }
+        this._garbage_collection_scheduled = true;
+        queueMicrotask(() => {
+            this._garbage_collection_scheduled = false;
+            this._collect_garbage();
+        });
+    }
+
     /*
         Marks everything reachable from the roots and deletes the rest.
 
@@ -574,8 +605,13 @@ export class Vitamins {
         A query is reachable if any link pointing at it is.
         A generator is reachable if its query is, and some link contributing it is.
         A document is reachable if any query it belongs to is.
+
+        Skipped unless something was removed since the last collection, since adding never creates garbage.
     */
     _collect_garbage() {
+        if(!this._garbage_possible) { return; }
+        this._garbage_possible = false;
+
         let marked = new Set<Link | Query | Generator | Document>();
         let queue: (Link | Query | Generator | Document)[] = [];
         let mark = (node: Link | Query | Generator | Document) => {

@@ -77,19 +77,22 @@ export declare class Vitamins {
     queries_by_collection: Map<string, Set<Query>>;
     debug_on: boolean;
     roots: Set<Link>;
+    _garbage_possible: boolean;
+    _garbage_collection_scheduled: boolean;
     constructor(vue: App | any);
     document<DOC extends generated_document_interface<result>>(document: DOC, ...generators: child_generator<Infer_Collection_Returntype<DOC>>[]): QuerySpec;
     query<COL extends generated_collection_interface<result>>(collection: COL, query_parameters: any, ...generators: child_generator<Infer_Collection_Returntype<COL>>[]): QuerySpec;
     unlisten_query(root: Link): void;
     add_document_from_external<Document extends generated_document_interface<result>>(collection: Document, data: result): void;
     delete_document_from_external(document_id: string): void;
+    collect_garbage(): void;
     update_document_from_external(document_id: string, data: result): void;
     _debug(...print: any[]): void;
     _find_existing_query(query: QueryShape): Query;
     _add_query(query: Query): void;
     _delete_query(query: Query): void;
     _add_document(document: Document): void;
-    _resolve_query(spec: QuerySpec, link: Link, rewalking?: ReadonlySet<Query>): {
+    _resolve_query(query_spec: QuerySpec, link: Link, loop_detector?: ReadonlySet<Query>): {
         query: Query;
         fetch?: Promise<void>;
     };
@@ -97,6 +100,7 @@ export declare class Vitamins {
     _run_generator(document: Document, generator: Generator, rewalking?: ReadonlySet<Query>): Link;
     _remove_link(link: Link): void;
     _update_data(reference: generated_collection_interface<result> | generated_document_interface<result> | undefined, document_id: string, data: result, query?: Query, collect_garbage?: boolean): void;
+    _schedule_garbage_collection(): void;
     _collect_garbage(): void;
 }
 export {};

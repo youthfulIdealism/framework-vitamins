@@ -498,6 +498,32 @@ describe('Bug Regressions', function () {
             assert.equal(vitamins.documents.size, 0);
         });
 
+        it(`a fetch that finishes after its query was collected should not load its results`, async function () {
+            let institution = gen_institution('test institution')
+            let client_1 = gen_client(institution, 'test client 1')
+            let {
+                vue,
+                api
+            } = get_setup(database(institution), database(client_1));
+            let institutions = api.collection('institution') as Institution;
+            let clients = institutions.document(institution._id).collection('client') as Client;
+
+            let vitamins = new Vitamins(vue);
+
+            // the child query's fetch is still in flight when its parent is unlistened
+            let slow_institution = {
+                ...institutions.document(institution._id),
+                async get() { await sleep(10); return institution; }
+            };
+            let query = await vitamins.query(clients, {}, () => vitamins.document(slow_institution)).run();
+            query.unlisten();
+            await sleep(30);
+
+            assert.deepEqual(vue, gen_vue());
+            assert.equal(vitamins.all_queries.size, 0);
+            assert.equal(vitamins.documents.size, 0);
+        });
+
         it(`reciprocal child generators with inline generators should not recurse infinitely`, async function () {
             let institution = gen_institution('test institution')
             let client_1 = gen_client(institution, 'test client 1')

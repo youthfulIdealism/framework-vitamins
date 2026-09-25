@@ -156,8 +156,9 @@ class Query extends QueryShape {
                 let reference = this.reference;
                 let result = await reference.get();
                 if (result) {
-                    this.vitamins._update_data(reference, result._id, result, this);
+                    this.vitamins._update_data(reference, result._id, result, this, false);
                 }
+                this.vitamins._schedule_garbage_collection();
             }
             else if (this.operation === 'query') {
                 let reference = this.reference;
@@ -165,7 +166,7 @@ class Query extends QueryShape {
                 for (let result of results) {
                     this.vitamins._update_data(reference, result._id, result, this, false);
                 }
-                this.vitamins._collect_garbage();
+                this.vitamins._schedule_garbage_collection();
                 if (results.length > 0) {
                     this.last_result = results[results.length - 1];
                 }
@@ -262,6 +263,8 @@ export class Vitamins {
     queries_by_collection;
     debug_on;
     roots;
+    _garbage_possible;
+    _garbage_collection_scheduled;
     constructor(vue) {
         this.vue = vue;
         this.documents = new Map();
@@ -269,6 +272,8 @@ export class Vitamins {
         this.all_queries = new Map();
         this.debug_on = false;
         this.roots = new Set();
+        this._garbage_possible = false;
+        this._garbage_collection_scheduled = false;
     }
     document(document, ...generators) {
         return new QuerySpec(this, document, undefined, generators);
@@ -309,6 +314,10 @@ export class Vitamins {
             query.documents.delete(document);
         }
         document.parents.clear();
+        this._garbage_possible = true;
+        this._collect_garbage();
+    }
+    collect_garbage() {
         this._collect_garbage();
     }
     update_document_from_external(document_id, data) {
@@ -340,30 +349,31 @@ export class Vitamins {
     _add_document(document) {
         this.documents.set(document.document._id, document);
     }
-    _resolve_query(spec, link, rewalking = new Set()) {
-        let self = this._find_existing_query(spec);
+    _resolve_query(query_spec, link, loop_detector = new Set()) {
+        let self = this._find_existing_query(query_spec);
         let is_new = !self;
         if (!self) {
-            self = new Query(this, spec);
+            self = new Query(this, query_spec);
             this._add_query(self);
         }
         else {
-            this._debug(`resolved ${spec.reference.collection_id} to existing query ${self.id}`);
+            this._debug(`resolved ${query_spec.reference.collection_id} to existing query ${self.id}`);
         }
         if (link.query !== self) {
             if (link.query) {
                 link.query.parents.delete(link);
                 this._set_generators_contributed_by_link(link, []);
+                this._garbage_possible = true;
             }
             link.query = self;
             self.parents.add(link);
         }
-        let added_generators = this._set_generators_contributed_by_link(link, spec.child_generators);
+        let added_generators = this._set_generators_contributed_by_link(link, query_spec.child_generators);
         if (is_new) {
             return { query: self, fetch: self._fetch() };
         }
-        if (added_generators.length > 0 && !rewalking.has(self)) {
-            let rewalking_self = new Set(rewalking).add(self);
+        if (added_generators.length > 0 && !loop_detector.has(self)) {
+            let rewalking_self = new Set(loop_detector).add(self);
             for (let document of Array.from(self.documents)) {
                 for (let generator of added_generators) {
                     this._run_generator(document, generator, rewalking_self);
@@ -380,6 +390,7 @@ export class Vitamins {
             }
             link.contributed.delete(generator);
             generator.sources.delete(link);
+            this._garbage_possible = true;
         }
         let query = link.query;
         for (let generator_function of generator_functions) {
@@ -422,8 +433,12 @@ export class Vitamins {
         }
         link.contributed.clear();
         this.roots.delete(link);
+        this._garbage_possible = true;
     }
     _update_data(reference, document_id, data, query, collect_garbage = true) {
+        if (query && this.all_queries.get(query.id) !== query) {
+            return;
+        }
         let document = this.documents.get(document_id);
         if (!document) {
             if (!reference) {
@@ -468,7 +483,21 @@ export class Vitamins {
             this._collect_garbage();
         }
     }
+    _schedule_garbage_collection() {
+        if (this._garbage_collection_scheduled) {
+            return;
+        }
+        this._garbage_collection_scheduled = true;
+        queueMicrotask(() => {
+            this._garbage_collection_scheduled = false;
+            this._collect_garbage();
+        });
+    }
     _collect_garbage() {
+        if (!this._garbage_possible) {
+            return;
+        }
+        this._garbage_possible = false;
         let marked = new Set();
         let queue = [];
         let mark = (node) => {
